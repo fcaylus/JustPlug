@@ -1,0 +1,11 @@
+{
+    "api" : "1.0.0",
+    "name" : "plugin_4",
+    "prettyName" : "Plugin 4",
+    "version" : "1.0.0",
+    "dependencies" : [{"name":"plugin_1", "version":"1.0.0"}],
+    "author" : "",
+    "url" : "",
+    "license" : "",
+    "copyright" : ""
+}

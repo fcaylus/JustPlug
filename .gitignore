@@ -1,0 +1,9 @@
+*~
+*.autosave
+CMakeCache.txt
+cmake_install.cmake
+*.cbp
+Makefile
+
+build/
+bin/

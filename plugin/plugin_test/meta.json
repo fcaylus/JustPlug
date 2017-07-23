@@ -1,0 +1,11 @@
+{
+    "api" : "1.0.0",
+    "name" : "plugin_test",
+    "prettyName" : "Plugin Test",
+    "version" : "1.0.0",
+    "dependencies" : [],
+    "author" : "",
+    "url" : "",
+    "license" : "",
+    "copyright" : ""
+}

@@ -3,8 +3,10 @@
 
 #include <memory> // for std::shared_ptr
 
-#include <boost/dll/alias.hpp>
+#include "confinfo.h"
 
+/* Functions used for checks in different macros */
+namespace jp {
 namespace CStringUtil {
 // Returns true if str contains c
 constexpr inline bool contains(const char* str, const char c)
@@ -17,9 +19,53 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
     return (*str == 0) ? true : (contains(allowed, str[0]) ? containsOnly(++str, allowed) : false);
 }
 } // namespace CStringUtil
+} // namespace jp
 
-// Allow the child class to create the factory method
-// Must be declared at the beginning of the class definition
+/*****************************************************************************/
+/***** Macros definitions ****************************************************/
+/*****************************************************************************/
+
+// Checks for GCC compiler
+#ifdef CONFINFO_COMPILER_GCC
+#  if __GNUC__ >= 4
+#    if defined(CONFINFO_PLATFORM_WIN32) && !defined(CONFINFO_PLATFORM_CYGWIN)
+#      define JP_EXPORT_SYMBOL __attribute__((__dllexport__))
+#    else
+#      define JP_EXPORT_SYMBOL __attribute__((__visibility__("default")))
+#    endif
+#  else
+#    define JP_EXPORT_SYMBOL
+#  endif
+#endif
+
+// Checks for SUNPRO_CC compiler
+#if defined(CONFINFO_COMPILER_SUNPRO_CC) && __SUNPRO_CC > 0x500
+#  define JP_EXPORT_SYMBOL __global
+#endif
+
+// Checks for CLang and IBM compiler on other platforms than Windows
+#if (defined(CONFINFO_COMPILER_CLANG) || defined(CONFINFO_COMPILER_XLCPP)) && !defined(CONFINFO_PLATFORM_WIN32)
+#  define JP_EXPORT_SYMBOL __attribute__((__visibility__("default")))
+#endif
+
+// Checks for intel compiler
+#if defined(CONFINFO_COMPILER_INTEL) && defined(__GNUC__) && (__GNUC__ >= 4)
+#  define JP_EXPORT_SYMBOL __attribute__((__visibility__("default")))
+#endif
+
+// Default export symbol on Windows and others
+#ifndef JP_EXPORT_SYMBOL
+#  ifdef CONFINFO_PLATFORM_WIN32
+#    define JP_EXPORT_SYMBOL __declspec(dllexport)
+#  else
+#    define JP_EXPORT_SYMBOL
+#  endif
+#endif
+
+/**
+ * @brief Allow the plugin class to create the factory method.
+ * @note Must be declared AT THE BEGINNING of the class definition.
+ */
 #define JP_DECLARE_PLUGIN(className)                                \
     public:                                                         \
         static std::shared_ptr<className> jp_createPlugin()         \
@@ -27,20 +73,30 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
             return std::shared_ptr<className>(new className());     \
         }
 
-// Allow the child class to export the correct symbol
-// Must be declared AFTER the class definition
-// pluginName must be a ASCII string with only letters, digits and '_', and not starting with a digit
-// (just like a C++ identifier)
-#define JP_REGISTER_PLUGIN(className, pluginName)                                                                               \
-    static_assert(CStringUtil::containsOnly(#pluginName, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"),    \
-                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");                                \
-    static_assert(!CStringUtil::contains("0123456789", *(const char*)(#pluginName)),                                            \
-                  "Plugin name \"" #pluginName "\" cannot start with a digit");                                                 \
-    extern "C" BOOST_SYMBOL_EXPORT const char* jp_name;                                                                         \
-    const char* jp_name = #pluginName;                                                                                          \
-    BOOST_DLL_ALIAS(className::jp_createPlugin, jp_createPlugin)                                                                \
-    extern "C" BOOST_SYMBOL_EXPORT const char jp_metadata[];
+/**
+ * @brief Allow the plugin class to export the correct symbols.
+ * @a pluginName must be an ASCII string with only letters, digits and '_', and not starting with a digit
+ * (just like a C identifier).
+ *
+ * @note Must be declared AFTER the class definition.
+ */
+#define JP_REGISTER_PLUGIN(className, pluginName)                                                                   \
+    static_assert(jp::CStringUtil::containsOnly(#pluginName,                                                        \
+                                                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"), \
+                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");                    \
+    static_assert(!jp::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),                            \
+                  "Plugin name \"" #pluginName "\" cannot start with a digit");                                     \
+    extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                                                \
+    const char* jp_name = #pluginName;                                                                              \
+    extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                                                           \
+    extern "C" JP_EXPORT_SYMBOL const void *jp_createPlugin;                                                        \
+    const void * jp_createPlugin = reinterpret_cast<const void*>(                                                   \
+                                   reinterpret_cast<intptr_t>(&className::jp_createPlugin));
 
+
+/*****************************************************************************/
+/***** IPlugin class *********************************************************/
+/*****************************************************************************/
 
 namespace jp {
 

@@ -43,7 +43,7 @@ ReturnCode::ReturnCode(const ReturnCode &code): type(code.type)
 ReturnCode::~ReturnCode()
 {}
 
-const char* ReturnCode::message()
+const char* ReturnCode::message() const
 {
     return message(*this);
 }
@@ -139,7 +139,7 @@ struct PluginManager::PlugMgrPrivate
     PathList listLibrariesInDir(const boost::filesystem::path& dir, bool recursive);
     PluginInfo parseMetadata(const char* metadata);
 
-    ReturnCode checkDependencies(Plugin &plugin, PluginManager::callback *callbackFunc);
+    ReturnCode checkDependencies(Plugin &plugin, PluginManager::callback callbackFunc);
     Graph createGraph(const Graph::NodeList& nameList);
 
     bool unloadPlugin(Plugin& plugin);
@@ -232,7 +232,7 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
 // Checks if the dependencies required by the plugin are present and compatible
 // with the required version
 // If all dependencies match, mark the plugin as "compatible"
-ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, callback* callbackFunc)
+ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, callback callbackFunc)
 {
     if(!indeterminate(plugin.dependenciesExists))
         return plugin.dependenciesExists == true ? ReturnCode::SUCCESS
@@ -248,7 +248,7 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, call
         {
             plugin.dependenciesExists = false;
             if(callbackFunc)
-                (*callbackFunc)(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin.lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin.lib.location().string().c_str()));
             return ReturnCode::LOAD_DEPENDENCY_NOT_FOUND;
         }
 
@@ -256,7 +256,7 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, call
         {
             plugin.dependenciesExists = false;
             if(callbackFunc)
-                (*callbackFunc)(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin.lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin.lib.location().string().c_str()));
             return ReturnCode::LOAD_DEPENDENCY_BAD_VERSION;
         }
 
@@ -321,7 +321,7 @@ PluginManager::~PluginManager()
     delete _p;
 }
 
-ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool recursive, callback* callbackFunc)
+ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool recursive, callback callbackFunc)
 {
     bool atLeastOneFound = false;
     PathList libList = _p->listLibrariesInDir(pluginDir, recursive);
@@ -342,7 +342,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
                 if(_p->pluginsMap.count(name) == 1)
                 {
                     if(callbackFunc)
-                        (*callbackFunc)(ReturnCode::SEARCH_NAME_ALREADY_EXISTS, strdup(lib.location().string().c_str()));
+                        callbackFunc(ReturnCode::SEARCH_NAME_ALREADY_EXISTS, strdup(lib.location().string().c_str()));
                     continue;
                 }
 
@@ -352,7 +352,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
                 if(!info.name)
                 {
                     if(callbackFunc)
-                        (*callbackFunc)(ReturnCode::SEARCH_CANNOT_PARSE_METADATA, strdup(lib.location().string().c_str()));
+                        callbackFunc(ReturnCode::SEARCH_CANNOT_PARSE_METADATA, strdup(lib.location().string().c_str()));
                     continue;
                 }
 
@@ -375,7 +375,12 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
     return ReturnCode::SEARCH_NOTHING_FOUND;
 }
 
-ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback* callbackFunc)
+ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, callback callbackFunc)
+{
+    return searchForPlugins(pluginDir, false, callbackFunc);
+}
+
+ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
 {
     // First step: For each plugins, check if it's dependencies have been found
     // and map each plugin name to an index (the index in the vector)
@@ -405,7 +410,7 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback* callbackFunc
     if(graph.checkForCycle())
     {
         if(callbackFunc)
-            (*callbackFunc)(ReturnCode::LOAD_DEPENDENCY_CYCLE, nullptr);
+            callbackFunc(ReturnCode::LOAD_DEPENDENCY_CYCLE, nullptr);
         return ReturnCode::LOAD_DEPENDENCY_CYCLE;
     }
 
@@ -422,7 +427,8 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback* callbackFunc
         // Only load the plugin if it's not already loaded
         if(!plugin.iplugin)
         {
-            plugin.creator = plugin.lib.get_alias<Plugin::iplugin_create_t>("jp_createPlugin");
+            // get_alias cannot be used because plugins must not depends on boost headers
+            plugin.creator = *(plugin.lib.get<Plugin::iplugin_create_t*>("jp_createPlugin"));
             plugin.iplugin = plugin.creator();
             plugin.iplugin->loaded();
         }
@@ -431,7 +437,12 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback* callbackFunc
     return ReturnCode::SUCCESS;
 }
 
-ReturnCode PluginManager::unloadPlugins(callback* callbackFunc)
+ReturnCode PluginManager::loadPlugins(callback callbackFunc)
+{
+    return loadPlugins(true, callbackFunc);
+}
+
+ReturnCode PluginManager::unloadPlugins(callback callbackFunc)
 {
     // Unload plugins in reverse order
     bool allUnloaded = true;
@@ -454,7 +465,7 @@ ReturnCode PluginManager::unloadPlugins(callback* callbackFunc)
     if(!allUnloaded)
     {
         if(callbackFunc)
-            (*callbackFunc)(ReturnCode::UNLOAD_NOT_ALL, nullptr);
+            callbackFunc(ReturnCode::UNLOAD_NOT_ALL, nullptr);
 
         return ReturnCode::UNLOAD_NOT_ALL;
     }
@@ -468,6 +479,20 @@ ReturnCode PluginManager::unloadPlugins(callback* callbackFunc)
 std::string PluginManager::appDirectory() const
 {
     return _p->appDir.string();
+}
+
+size_t PluginManager::pluginsCount() const
+{
+    return _p->pluginsMap.size();
+}
+
+std::vector<std::string> PluginManager::pluginsList() const
+{
+    std::vector<std::string> nameList;
+    nameList.reserve(_p->pluginsMap.size());
+    for(auto const& x : _p->pluginsMap)
+        nameList.push_back(x.first);
+    return nameList;
 }
 
 bool PluginManager::hasPlugin(const std::string &name) const

@@ -2,6 +2,7 @@
 #define PLUGINMANAGER_H
 
 #include <string> // for std::string
+#include <vector> // for std::vector
 #include <functional> // for std::function
 #include <memory> // for std::shared_ptr
 
@@ -30,7 +31,7 @@ struct ReturnCode {
     };
     Type type;
 
-    const char* message();
+    const char* message() const;
     static const char* message(const ReturnCode& code);
 
     explicit operator bool() { return type == Type::SUCCESS; }
@@ -73,27 +74,46 @@ public:
      * @param callbackFunc This function is called upon each error during the search (if specified)
      * @return true if at least one plugin was found
      */
-    ReturnCode searchForPlugins(const std::string& pluginDir, bool recursive = false, callback* callbackFunc = nullptr);
+    ReturnCode searchForPlugins(const std::string& pluginDir, bool recursive, callback callbackFunc);
+    /**
+     * @brief Overloaded function
+     * Same as searchForPlugins(const std::string& pluginDir, bool recursive, callback callbackFunc)
+     * with recursive set to false.
+     * @param pluginDir
+     * @param callbackFunc
+     */
+    ReturnCode searchForPlugins(const std::string& pluginDir, callback callbackFunc = callback());
+
     /**
      * @brief Load all plugins found by previous searchForPlugins().
      * @param tryToContinue If true, the manager will try to load other plugins if some have errors.
      * @param callbackFunc Callback function.
      * @return true if all plugins was successfully loaded.
      */
-    ReturnCode loadPlugins(bool tryToContinue = true, callback* callbackFunc = nullptr);
+    ReturnCode loadPlugins(bool tryToContinue, callback callbackFunc);
+    /**
+     * @brief Overloaded function
+     * Same as loadPlugins(bool tryToContinue, callback callbackFunc) with tryToContinue set to true.
+     * @param callbackFunc
+     */
+    ReturnCode loadPlugins(callback callbackFunc = callback());
+
     /**
      * @brief Unload all loaded plugins.
      * After this function, if the user wants to reload the plugins, he must recall searchForPlugins first.
      * @param callbackFunc Callback function.
      * @return true if all plugins are successfully unloaded.
      */
-    ReturnCode unloadPlugins(callback* callbackFunc = nullptr);
+    ReturnCode unloadPlugins(callback callbackFunc = callback());
 
     //
     // Getters
     //
 
     std::string appDirectory() const;
+
+    size_t pluginsCount() const;
+    std::vector<std::string> pluginsList() const;
 
     bool hasPlugin(const std::string& name) const;
     bool hasPlugin(const std::string& name, const std::string& minVersion) const;

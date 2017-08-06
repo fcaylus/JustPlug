@@ -23,7 +23,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin/${CMAKE_BUILD
 
 #
 # -fvisibility=hidden must be set for every plugin in case several plugins have the same class names
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fvisibility=hidden")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fvisibility=hidden -fPIC")
 
 #
 # Find Boost
@@ -39,6 +39,14 @@ include_directories(${Boost_INCLUDE_DIRS})
 # Include thirdparty folder
 #
 include_directories(thirdparty)
+
+# Add whereami dependency
+file(
+    GLOB_RECURSE
+    whereami_files
+    thirdparty/whereami/src/*.c
+    thirdparty/whereami/src/*.h
+)
 
 #
 # Add plugins projects
@@ -83,6 +91,7 @@ add_executable(
     ${EXE_NAME}
     ${source_files}
     ${include_files}
+    ${whereami_files}
 )
 
 target_link_libraries(${EXE_NAME} ${Boost_LIBRARIES})

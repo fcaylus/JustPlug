@@ -9,10 +9,13 @@
 #include "plugininfo.h"
 #include "iplugin.h"
 
-namespace jp {
+namespace jp
+{
 
-struct ReturnCode {
-    enum Type {
+struct ReturnCode
+{
+    enum Type
+    {
         SUCCESS = 0,
         UNKNOWN_ERROR = 1,
 
@@ -20,6 +23,7 @@ struct ReturnCode {
         SEARCH_NOTHING_FOUND = 100,
         SEARCH_NAME_ALREADY_EXISTS = 101,
         SEARCH_CANNOT_PARSE_METADATA = 102,
+        SEARCH_LISTFILES_ERROR = 103,
 
         // Raised by loadPlugins()
         LOAD_DEPENDENCY_BAD_VERSION = 200,
@@ -47,14 +51,22 @@ struct ReturnCode {
 
 /**
  * @class PluginManager
- * @brief Main class to manage all plugins
+ * @brief Main class to manage all plugins.
+ * Since it is a singleton-class, only one instance can be created.
  */
 class PluginManager
 {
 
 public:
-    PluginManager();
-    ~PluginManager();
+
+    /**
+     * @brief Return an instance of the plugin manager.
+     * Calling instance() several times at different places always return a reference
+     * to the same object. This allow the program to manage plugins and access informations
+     * from different places.
+     * @return A reference of the object.
+     */
+    static PluginManager& instance();
 
     /**
      * @brief Signature for all callback functions used for error report in this class
@@ -110,7 +122,7 @@ public:
     // Getters
     //
 
-    std::string appDirectory() const;
+    static std::string appDirectory();
 
     size_t pluginsCount() const;
     std::vector<std::string> pluginsList() const;
@@ -126,9 +138,16 @@ public:
     PluginInfo pluginInfo(const std::string& name) const;
 
 private:
+    PluginManager();
+    ~PluginManager();
+
+    // Non-copyable
+    PluginManager(const PluginManager&) = delete;
+    const PluginManager& operator=(const PluginManager&) = delete;
 
     struct PlugMgrPrivate;
     PlugMgrPrivate* const _p;
+    friend struct PlugMgrPrivate;
 };
 
 } // namespace jp

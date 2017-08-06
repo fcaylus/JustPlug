@@ -6,23 +6,22 @@
 #include <boost/dll/shared_library_load_mode.hpp>
 #include <boost/dll/import.hpp>
 
-// Tribool object
-#include <boost/logic/tribool.hpp>
-
-#include <iostream>
-#include <cstring>
+#include <iostream> // for std::cout
+#include <cstring> // for strdup
 #include <iterator>
 #include <algorithm>
 #include <unordered_map>
 #include <type_traits> // for std::is_base_of
 
-#include "version.h"
-#include "json.hpp"
+#include "version/version.h"
+#include "json/json.hpp"
 
-#include "graph.h"
+#include "private/graph.h"
+#include "private/tribool.h"
+#include "private/fsutil.h"
 
 using namespace jp;
-using namespace boost::logic;
+using namespace jp_private;
 
 /*****************************************************************************/
 /* ReturnCode struct *********************************************************/
@@ -68,6 +67,9 @@ const char* ReturnCode::message(const ReturnCode &code)
     case SEARCH_NAME_ALREADY_EXISTS:
         return "A plugin with the same name was already found";
         break;
+    case SEARCH_LISTFILES_ERROR:
+        return "An error occurs during the scan of the plugin dir";
+        break;
     case LOAD_DEPENDENCY_BAD_VERSION:
         return "The plugin requires a dependency that's in an incorrect version";
         break;
@@ -89,14 +91,14 @@ const char* ReturnCode::message(const ReturnCode &code)
 /*****************************************************************************/
 
 //
-// Implementation Classes (and some typedefs)
+// Implementation Classes
 //
 
-typedef std::vector<boost::filesystem::path> PathList;
-
 // Internal structure to store plugins and their associated library
-struct Plugin {
-    typedef std::shared_ptr<IPlugin> (iplugin_create_t)();
+struct Plugin
+{
+    typedef int (*ManagerRequestFunc)(const char*, int, const char*, void*, int);
+    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(ManagerRequestFunc);
 
     std::shared_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
@@ -105,11 +107,13 @@ struct Plugin {
 
     //
     // Flags used when loading
-    tribool dependenciesExists = indeterminate; // true if all dependencies are present, indeterminate if not yet checked
+
+    // true if all dependencies are present, indeterminate if not yet checked
+    TriBool dependenciesExists = TriBool::Indeterminate;
     int graphId = -1;
 
     // Destructor
-    ~Plugin()
+    virtual ~Plugin()
     {
         // Just in case the plugins have not been unloaded (should not happen)
         if(lib.is_loaded())
@@ -119,70 +123,50 @@ struct Plugin {
             iplugin.reset();
             lib.unload();
         }
+
+        free((char*)info.name);
+        free((char*)info.prettyName);
+        free((char*)info.version);
+        free((char*)info.author);
+        free((char*)info.url);
+        free((char*)info.license);
+        free((char*)info.copyright);
+        free((char*)info.dependencies);
     }
+
+    Plugin() = default;
+
+    // Non-copyable
+    Plugin(const Plugin&) = delete;
+    const Plugin& operator=(const Plugin&) = delete;
 };
+typedef std::shared_ptr<Plugin> PluginPtr;
 
 // Private implementation class
 struct PluginManager::PlugMgrPrivate
 {
-    PlugMgrPrivate(): appDir(boost::dll::program_location().parent_path()) {}
+    PlugMgrPrivate() {}
     ~PlugMgrPrivate() {}
 
-    std::unordered_map<std::string, Plugin> pluginsMap;
+    std::unordered_map<std::string, PluginPtr> pluginsMap;
     // Contains the last load order used
     std::vector<std::string> loadOrderList;
-    boost::filesystem::path appDir;
 
     //
     // Functions
 
-    PathList listLibrariesInDir(const boost::filesystem::path& dir, bool recursive);
     PluginInfo parseMetadata(const char* metadata);
+    ReturnCode checkDependencies(PluginPtr plugin, PluginManager::callback callbackFunc);
 
-    ReturnCode checkDependencies(Plugin &plugin, PluginManager::callback callbackFunc);
-    Graph createGraph(const Graph::NodeList& nameList);
+    bool unloadPlugin(PluginPtr plugin);
 
-    bool unloadPlugin(Plugin& plugin);
+    // Function called by plugins throught IPlugin::sendRequest()
+    static int handleRequest(const char* pluginName, int code, const char *receiver, void* data, int dataSize);
 };
 
 //
 // Private implementations functions
 //
-
-PathList PluginManager::PlugMgrPrivate::listLibrariesInDir(const boost::filesystem::path &dir, bool recursive)
-{
-    try
-    {
-        if(boost::filesystem::exists(dir) && boost::filesystem::is_directory(dir))
-        {
-            PathList v;
-
-            for(auto&& x : boost::filesystem::directory_iterator(dir))
-            {
-                boost::filesystem::path path = x.path();
-                // Filters libraries files by suffix
-                if(boost::filesystem::is_regular_file(path) && path.extension() == boost::dll::shared_library::suffix())
-                    v.push_back(path);
-
-                else if(recursive && boost::filesystem::is_directory(path))
-                {
-                    PathList v2 = listLibrariesInDir(path, true);
-                    // Append new files to the final vector
-                    v.reserve(v.capacity() + v2.size());
-                    for(auto p: v2)
-                        v.push_back(p);
-                }
-            }
-
-            return v;
-        }
-    }
-    catch(const boost::filesystem::filesystem_error& ex)
-    {
-        std::cout << ex.what() << std::endl;
-    }
-    return PathList();
-}
 
 // Parse json metadata usign json.hpp (in thirdparty/ folder)
 PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
@@ -229,34 +213,34 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
     return PluginInfo();
 }
 
-// Checks if the dependencies required by the plugin are present and compatible
-// with the required version
+// Checks if the dependencies required by the plugin exists and are compatible
+// with the required version.
 // If all dependencies match, mark the plugin as "compatible"
-ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, callback callbackFunc)
+ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(PluginPtr plugin, callback callbackFunc)
 {
-    if(!indeterminate(plugin.dependenciesExists))
-        return plugin.dependenciesExists == true ? ReturnCode::SUCCESS
-                                                 : (pluginsMap.count(plugin.info.name) == 0 ? ReturnCode::LOAD_DEPENDENCY_NOT_FOUND
-                                                                                            : ReturnCode::LOAD_DEPENDENCY_BAD_VERSION);
+    if(!plugin->dependenciesExists.indeterminate())
+        return plugin->dependenciesExists == true ? ReturnCode::SUCCESS
+                                                  : (pluginsMap.count(plugin->info.name) == 0 ? ReturnCode::LOAD_DEPENDENCY_NOT_FOUND
+                                                                                              : ReturnCode::LOAD_DEPENDENCY_BAD_VERSION);
 
-    for(int i=0; i < plugin.info.dependenciesNb; ++i)
+    for(int i=0; i < plugin->info.dependenciesNb; ++i)
     {
-        const std::string& depName = plugin.info.dependencies[i].name;
-        const std::string& depVer = plugin.info.dependencies[i].version;
+        const std::string& depName = plugin->info.dependencies[i].name;
+        const std::string& depVer = plugin->info.dependencies[i].version;
         // Checks if the plugin dep is compatible
         if(pluginsMap.count(depName) == 0)
         {
-            plugin.dependenciesExists = false;
+            plugin->dependenciesExists = false;
             if(callbackFunc)
-                callbackFunc(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin.lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin->lib.location().string().c_str()));
             return ReturnCode::LOAD_DEPENDENCY_NOT_FOUND;
         }
 
-        if(!Version(pluginsMap[depName].info.version).compatible(depVer))
+        if(!Version(pluginsMap[depName]->info.version).compatible(depVer))
         {
-            plugin.dependenciesExists = false;
+            plugin->dependenciesExists = false;
             if(callbackFunc)
-                callbackFunc(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin.lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin->lib.location().string().c_str()));
             return ReturnCode::LOAD_DEPENDENCY_BAD_VERSION;
         }
 
@@ -266,44 +250,37 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(Plugin &plugin, call
             return retCode;
     }
 
-    plugin.dependenciesExists = true;
+    plugin->dependenciesExists = true;
     return ReturnCode::SUCCESS;
 }
 
-// Creates a graph that represent the structure between each plugin and its dependencies
-Graph PluginManager::PlugMgrPrivate::createGraph(const Graph::NodeList& nameList)
+// Return true if the plugin is successfully unloaded
+bool PluginManager::PlugMgrPrivate::unloadPlugin(PluginPtr plugin)
 {
-    // A graph is composed of two elements:
-    // - a node list (nameList)
-    // - an edge list (relations between nodes, parent --> child)
-
-    Graph::EdgeList edgeList;
-    // Reserve at least nameList.size() elements
-    // (there can be more or less edges, but that's a good approximation and avoid too many reallocations)
-    edgeList.reserve(nameList.size()*sizeof(Graph::Edge));
-
-    for(int i=0, iMax=nameList.size(); i<iMax; ++i)
+    if(plugin->iplugin)
     {
-        const Plugin& plugin = pluginsMap[nameList[i]];
-
-        for(int j=0; j<plugin.info.dependenciesNb; ++j)
-        {
-            int depId = pluginsMap[plugin.info.dependencies[j].name].graphId;
-            edgeList.push_back(Graph::Edge(depId, i));
-        }
+        plugin->iplugin->aboutToBeUnloaded();
+        plugin->iplugin.reset();
     }
+    plugin->lib.unload();
+    const bool isLoaded = plugin->lib.is_loaded();
+    plugin.reset();
 
-    return Graph(nameList, edgeList);
+    return !isLoaded;
 }
 
-// Return true if the plugin is successfully unloaded
-bool PluginManager::PlugMgrPrivate::unloadPlugin(Plugin &plugin)
+// Static
+int PluginManager::PlugMgrPrivate::handleRequest(const char* pluginName,
+                                                 int code,
+                                                 const char *receiver,
+                                                 void *data,
+                                                 int dataSize)
 {
-    plugin.iplugin->aboutToBeUnloaded();
-    plugin.iplugin.reset();
-    plugin.lib.unload();
+    PluginManager::PlugMgrPrivate *_p = PluginManager::instance()._p;
 
-    return !plugin.lib.is_loaded();
+    std::cout << "Request from " << pluginName << " !" << std::endl;
+
+    return 0;
 }
 
 /*****************************************************************************/
@@ -321,11 +298,28 @@ PluginManager::~PluginManager()
     delete _p;
 }
 
+// Static
+PluginManager& PluginManager::instance()
+{
+    static PluginManager inst;
+    return inst;
+}
+
 ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool recursive, callback callbackFunc)
 {
     bool atLeastOneFound = false;
-    PathList libList = _p->listLibrariesInDir(pluginDir, recursive);
-    for(boost::filesystem::path path : libList)
+    fsutil::PathList libList;
+    if(!fsutil::listLibrariesInDir(pluginDir, &libList, recursive))
+    {
+        // An error occured
+        if(callbackFunc)
+            callbackFunc(ReturnCode::SEARCH_LISTFILES_ERROR, strerror(errno));
+        // Only return if no files was found
+        if(libList.empty())
+            return ReturnCode::SEARCH_LISTFILES_ERROR;
+    }
+
+    for(const std::string& path : libList)
     {
         try
         {
@@ -334,9 +328,10 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
             {
                 std::cout << "Found library at: " << lib.location() << std::endl;
                 // This is a JustPlug library
-                Plugin plugin;
-                plugin.lib = lib;
+                PluginPtr plugin(new Plugin());
+                plugin->lib = lib;
                 const std::string name = lib.get<const char*>("jp_name");
+                std::cout << name << std::endl;
 
                 // name must be unique for each plugin
                 if(_p->pluginsMap.count(name) == 1)
@@ -356,8 +351,10 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
                     continue;
                 }
 
-                plugin.info = info;
-                std::cout << info.toString() << std::endl;
+                plugin->info = info;
+                const char* infoString = info.toString();
+                std::cout << infoString << std::endl;
+                free((char*)infoString);
 
                 _p->pluginsMap[name] = plugin;
                 atLeastOneFound = true;
@@ -383,11 +380,11 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, callbac
 ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
 {
     // First step: For each plugins, check if it's dependencies have been found
-    // and map each plugin name to an index (the index in the vector)
-    std::vector<std::string> nameList;
-    nameList.reserve(sizeof(std::string)*_p->pluginsMap.size());
+    // Also creates a node list used by the graph to sort the dependencies
+    Graph::NodeList nodeList;
+    nodeList.reserve(_p->pluginsMap.size());
 
-    for(std::pair<const std::string, Plugin>& val : _p->pluginsMap)
+    for(auto& val : _p->pluginsMap)
     {
         ReturnCode retCode = _p->checkDependencies(val.second, callbackFunc);
         if(!tryToContinue && !retCode)
@@ -396,41 +393,56 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
             return retCode;
         }
 
-        if(val.second.dependenciesExists)
+        if(val.second->dependenciesExists == true)
         {
-            nameList.push_back(val.first);
-            val.second.graphId = nameList.size()-1;
+            Graph::Node node;
+            node.name = &(val.first);
+            nodeList.push_back(node);
+            val.second->graphId = nodeList.size() - 1;
         }
     }
 
-    // Second step: create a graph of all dependencies
-    Graph graph = _p->createGraph(nameList);
-
-    // Third step: check for cycles in the graph
-    if(graph.checkForCycle())
+    // Fill parentNodes list for each node
+    for(auto& val : _p->pluginsMap)
     {
+        const int nodeId = val.second->graphId;
+        if(nodeId != -1)
+        {
+            for(int i=0; i<val.second->info.dependenciesNb; ++i)
+                nodeList[nodeId].parentNodes.push_back(_p->pluginsMap[val.second->info.dependencies[i].name]->graphId);
+        }
+    }
+
+
+    // Second step: create a graph of all dependencies
+    Graph graph(nodeList);
+
+    // Third step: find the correct loading order using the topological Sort
+    bool error = false;
+    _p->loadOrderList = graph.topologicalSort(error);
+    if(error)
+    {
+        // There is a cycle inside the graph
         if(callbackFunc)
             callbackFunc(ReturnCode::LOAD_DEPENDENCY_CYCLE, nullptr);
         return ReturnCode::LOAD_DEPENDENCY_CYCLE;
     }
 
-    // Fourth step: find the correct loading order
-    _p->loadOrderList = graph.topologicalSort();
     std::cout << "Load order:" << std::endl;
     for(auto const& name : _p->loadOrderList)
         std::cout << " - " << name << std::endl;
 
-    // Fifth step: load plugins
+    // Fourth step: load plugins
     for(const std::string& name : _p->loadOrderList)
     {
-        Plugin& plugin = _p->pluginsMap.at(name);
+        PluginPtr plugin = _p->pluginsMap.at(name);
         // Only load the plugin if it's not already loaded
-        if(!plugin.iplugin)
+        if(!plugin->iplugin)
         {
             // get_alias cannot be used because plugins must not depends on boost headers
-            plugin.creator = *(plugin.lib.get<Plugin::iplugin_create_t*>("jp_createPlugin"));
-            plugin.iplugin = plugin.creator();
-            plugin.iplugin->loaded();
+            plugin->creator = *(plugin->lib.get<Plugin::iplugin_create_t*>("jp_createPlugin"));
+            plugin->iplugin = plugin->creator(PlugMgrPrivate::handleRequest);
+            plugin->iplugin->loaded();
         }
     }
 
@@ -446,7 +458,7 @@ ReturnCode PluginManager::unloadPlugins(callback callbackFunc)
 {
     // Unload plugins in reverse order
     bool allUnloaded = true;
-    for(std::vector<std::string>::reverse_iterator it = _p->loadOrderList.rbegin();
+    for(auto it = _p->loadOrderList.rbegin();
         it != _p->loadOrderList.rend(); ++it)
     {
         if(!_p->unloadPlugin(_p->pluginsMap[*it]))
@@ -457,7 +469,7 @@ ReturnCode PluginManager::unloadPlugins(callback callbackFunc)
     // Remove remaining plugins (if they are not in the loading list)
     while(!_p->pluginsMap.empty())
     {
-        if(_p->unloadPlugin(_p->pluginsMap.begin()->second))
+        if(!_p->unloadPlugin(_p->pluginsMap.begin()->second))
             allUnloaded = false;
         _p->pluginsMap.erase(_p->pluginsMap.begin());
     }
@@ -476,9 +488,10 @@ ReturnCode PluginManager::unloadPlugins(callback callbackFunc)
 // Getters
 //
 
-std::string PluginManager::appDirectory() const
+// Static
+std::string PluginManager::appDirectory()
 {
-    return _p->appDir.string();
+    return fsutil::appDir();
 }
 
 size_t PluginManager::pluginsCount() const
@@ -502,12 +515,12 @@ bool PluginManager::hasPlugin(const std::string &name) const
 
 bool PluginManager::hasPlugin(const std::string &name, const std::string &minVersion) const
 {
-    return hasPlugin(name) && Version(_p->pluginsMap[name].info.version).compatible(minVersion);
+    return hasPlugin(name) && Version(_p->pluginsMap[name]->info.version).compatible(minVersion);
 }
 
 bool PluginManager::isPluginLoaded(const std::string &name) const
 {
-    return hasPlugin(name) && _p->pluginsMap[name].lib.is_loaded() && _p->pluginsMap[name].iplugin;
+    return hasPlugin(name) && _p->pluginsMap[name]->lib.is_loaded() && _p->pluginsMap[name]->iplugin;
 }
 
 template<typename PluginType>
@@ -517,13 +530,13 @@ std::shared_ptr<PluginType> PluginManager::pluginObject(const std::string& name)
     if(!hasPlugin(name))
         return std::shared_ptr<PluginType>();
 
-    std::shared_ptr<IPlugin> iplugin = _p->pluginsMap[name].iplugin;
+    std::shared_ptr<IPlugin> iplugin = _p->pluginsMap[name]->iplugin;
     return std::dynamic_pointer_cast<PluginType>(iplugin);
 }
 
 PluginInfo PluginManager::pluginInfo(const std::string &name) const
 {
     if(hasPlugin(name))
-        return _p->pluginsMap[name].info;
+        return _p->pluginsMap[name]->info;
     return PluginInfo();
 }

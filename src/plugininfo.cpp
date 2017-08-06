@@ -1,7 +1,7 @@
 #include "plugininfo.h"
 
 #include <string>
-#include <cstring>
+#include <cstring> // for strdup
 
 using namespace jp;
 using namespace std;
@@ -30,12 +30,12 @@ Dependency::~Dependency()
 
 PluginInfo::~PluginInfo()
 {
-    /*delete name;
-    delete prettyName;
-    delete version;
-    delete author;
-    delete url;
-    delete license;
-    delete copyright;
-    delete dependencies;*/
+    /*free((char*)name);
+    free((char*)prettyName);
+    free((char*)version);
+    free((char*)author);
+    free((char*)url);
+    free((char*)license);
+    free((char*)copyright);*/
+    //delete dependencies;
 }

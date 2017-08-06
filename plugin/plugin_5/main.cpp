@@ -4,7 +4,7 @@
 
 class Plugin: public jp::IPlugin
 {
-    JP_DECLARE_PLUGIN(Plugin)
+    JP_DECLARE_PLUGIN(Plugin, plugin_5)
 
 public:
 
@@ -17,7 +17,10 @@ public:
     {
         std::cout << "Unloading Plugin 5" << std::endl;
     }
+
+    virtual int handleRequest(int, const char *, void *, int)
+    { return 0; }
 };
 
-JP_REGISTER_PLUGIN(Plugin, plugin_5)
+JP_REGISTER_PLUGIN(Plugin)
 #include "metadata.h"

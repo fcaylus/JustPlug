@@ -6,8 +6,10 @@
 #include "confinfo.h"
 
 /* Functions used for checks in different macros */
-namespace jp {
-namespace CStringUtil {
+namespace jp
+{
+namespace CStringUtil
+{
 // Returns true if str contains c
 constexpr inline bool contains(const char* str, const char c)
 {
@@ -64,33 +66,38 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
 
 /**
  * @brief Allow the plugin class to create the factory method.
+ * @a pluginName must be an ASCII string with only letters, digits and '_', and not starting with a digit
+ * (just like a C identifier).
  * @note Must be declared AT THE BEGINNING of the class definition.
  */
-#define JP_DECLARE_PLUGIN(className)                                \
-    public:                                                         \
-        static std::shared_ptr<className> jp_createPlugin()         \
-        {                                                           \
-            return std::shared_ptr<className>(new className());     \
-        }
+#define JP_DECLARE_PLUGIN(className, pluginName)                                                    \
+    static_assert(jp::CStringUtil::containsOnly(#pluginName,                                        \
+                                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                        \
+                                                "abcdefghijklmnopqrstuvwxyz0123456789_"),           \
+                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");    \
+    static_assert(!jp::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),            \
+                  "Plugin name \"" #pluginName "\" cannot start with a digit");                     \
+    private:                                                                                        \
+        className(ManagerRequestFunc requestFunc): jp::IPlugin(requestFunc) {}                      \
+        const char* jp_name() override { return #pluginName; }                                      \
+    public:                                                                                         \
+        static std::shared_ptr<jp::IPlugin> jp_createPlugin(ManagerRequestFunc requestFunc)         \
+        {                                                                                           \
+            return std::shared_ptr<jp::IPlugin>(new className(requestFunc));                        \
+        }                                                                                           \
+        static const char* name() { return #pluginName; }
+
 
 /**
  * @brief Allow the plugin class to export the correct symbols.
- * @a pluginName must be an ASCII string with only letters, digits and '_', and not starting with a digit
- * (just like a C identifier).
- *
  * @note Must be declared AFTER the class definition.
  */
-#define JP_REGISTER_PLUGIN(className, pluginName)                                                                   \
-    static_assert(jp::CStringUtil::containsOnly(#pluginName,                                                        \
-                                                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"), \
-                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");                    \
-    static_assert(!jp::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),                            \
-                  "Plugin name \"" #pluginName "\" cannot start with a digit");                                     \
-    extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                                                \
-    const char* jp_name = #pluginName;                                                                              \
-    extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                                                           \
-    extern "C" JP_EXPORT_SYMBOL const void *jp_createPlugin;                                                        \
-    const void * jp_createPlugin = reinterpret_cast<const void*>(                                                   \
+#define JP_REGISTER_PLUGIN(className)                                                           \
+    extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                            \
+    const char* jp_name = className::name();                                                    \
+    extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                                       \
+    extern "C" JP_EXPORT_SYMBOL const void *jp_createPlugin;                                    \
+    const void * jp_createPlugin = reinterpret_cast<const void*>(                               \
                                    reinterpret_cast<intptr_t>(&className::jp_createPlugin));
 
 
@@ -98,7 +105,8 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
 /***** IPlugin class *********************************************************/
 /*****************************************************************************/
 
-namespace jp {
+namespace jp
+{
 
 /**
  * @class IPlugin
@@ -125,8 +133,32 @@ public:
      */
     virtual void aboutToBeUnloaded() = 0;
 
+    virtual int sendRequest(int code,
+                            const char* receiver = nullptr,
+                            void* data = nullptr,
+                            int dataSize = -1) final
+    {
+        return _requestFunc(jp_name(), code, receiver, data, dataSize);
+    }
+
+    virtual int handleRequest(int code,
+                              const char* sender,
+                              void* data,
+                              int dataSize) = 0;
+
 protected:
-    IPlugin() {}
+    typedef int (*ManagerRequestFunc)(const char*, int, const char*, void*, int);
+    IPlugin(ManagerRequestFunc func) { _requestFunc = func; }
+
+private:
+    ManagerRequestFunc _requestFunc;
+    virtual const char* jp_name() = 0;
+
+    IPlugin() = default;
+
+    // Prevent from copying plugins objects
+    IPlugin(const IPlugin&) = delete;
+    const IPlugin& operator=(const IPlugin&) = delete;
 };
 
 } // namespace jp

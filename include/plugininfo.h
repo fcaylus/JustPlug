@@ -1,7 +1,8 @@
 #ifndef PLUGININFO_H
 #define PLUGININFO_H
 
-namespace jp {
+namespace jp
+{
 
 /**
  * @struct Dependency
@@ -36,6 +37,7 @@ struct PluginInfo
 
     /**
      * @brief Convert the struct to a printable string.
+     * The user must free the string himself.
      * @return the string
      * @note This function may be slow due to the internal conversion to std::string
      */

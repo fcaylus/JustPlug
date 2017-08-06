@@ -22,7 +22,7 @@ struct Dependency
  * If name is an empty string, the metadata is invalid.
  */
 struct PluginInfo
-{    
+{
     const char* name;
     const char* prettyName;
     const char* version;

@@ -127,6 +127,8 @@ public:
     size_t pluginsCount() const;
     std::vector<std::string> pluginsList() const;
 
+    std::vector<std::string> pluginsLocation() const;
+
     bool hasPlugin(const std::string& name) const;
     bool hasPlugin(const std::string& name, const std::string& minVersion) const;
 

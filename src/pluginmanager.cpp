@@ -152,6 +152,9 @@ struct PluginManager::PlugMgrPrivate
     // Contains the last load order used
     std::vector<std::string> loadOrderList;
 
+    // List all locations to load plugins
+    std::vector<std::string> locations;
+
     //
     // Functions
 
@@ -368,7 +371,12 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
     }
 
     if(atLeastOneFound)
+    {
+        // Only add the location if it's not already in the list
+        if(std::find(_p->locations.begin(), _p->locations.end(), pluginDir) == _p->locations.end())
+            _p->locations.push_back(pluginDir);
         return ReturnCode::SUCCESS;
+    }
     return ReturnCode::SEARCH_NOTHING_FOUND;
 }
 
@@ -389,7 +397,7 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
         ReturnCode retCode = _p->checkDependencies(val.second, callbackFunc);
         if(!tryToContinue && !retCode)
         {
-            // An error occured, on one plugin, stop everything
+            // An error occured on one plugin, stop everything
             return retCode;
         }
 
@@ -474,6 +482,9 @@ ReturnCode PluginManager::unloadPlugins(callback callbackFunc)
         _p->pluginsMap.erase(_p->pluginsMap.begin());
     }
 
+    // Clear the locations list
+    _p->locations.clear();
+
     if(!allUnloaded)
     {
         if(callbackFunc)
@@ -506,6 +517,11 @@ std::vector<std::string> PluginManager::pluginsList() const
     for(auto const& x : _p->pluginsMap)
         nameList.push_back(x.first);
     return nameList;
+}
+
+std::vector<std::string> PluginManager::pluginsLocation() const
+{
+    return _p->locations;
 }
 
 bool PluginManager::hasPlugin(const std::string &name) const

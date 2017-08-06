@@ -126,7 +126,7 @@ public:
     virtual void loaded() = 0;
     /**
      * @brief Called by the Plugin Manager just before the unloading of the plugin.
-     * The plugin should use this function to do all his destriction stuff.
+     * The plugin should use this function to do all his destruction stuff.
      * @note All dependencies remains valid until the return of this function.
      * @note The plugin object is deleted and the library unloaded just after the
      * return of this function.

@@ -66,10 +66,6 @@ public:
     {
     }
 
-    ~Graph()
-    {
-    }
-
     // This sort use a Depth-first search algorithm as described at:
     // https://en.wikipedia.org/wiki/Topological_sorting#Depth-first_search
     NodeNamesList topologicalSort(bool& error)

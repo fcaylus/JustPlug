@@ -430,11 +430,15 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
 {
     // First step: For each plugins, check if it's dependencies have been found
     // Also creates a node list used by the graph to sort the dependencies
+    // NOTE: The graph is re-created even if loadPlugins() was already called.
     Graph::NodeList nodeList;
     nodeList.reserve(_p->pluginsMap.size());
 
     for(auto& val : _p->pluginsMap)
     {
+        // Init the ID to the default value (in case loadPlugins is called several times)
+        val.second->graphId = -1;
+
         ReturnCode retCode = _p->checkDependencies(val.second, callbackFunc);
         if(!tryToContinue && !retCode)
         {

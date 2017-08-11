@@ -1,3 +1,27 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2017 Fabien Caylus
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include "pluginmanager.h"
 
 // Used for DLL management
@@ -74,7 +98,7 @@ const char* ReturnCode::message(const ReturnCode &code)
         return "The plugin requires a dependency that's in an incorrect version";
         break;
     case LOAD_DEPENDENCY_NOT_FOUND:
-        return "THe plugin requires a dependency that wasn't found";
+        return "The plugin requires a dependency that wasn't found";
         break;
     case LOAD_DEPENDENCY_CYCLE:
         return "The dependencies graph contains a cycle, which makes impossible to load plugins";
@@ -97,8 +121,7 @@ const char* ReturnCode::message(const ReturnCode &code)
 // Internal structure to store plugins and their associated library
 struct Plugin
 {
-    typedef int (*ManagerRequestFunc)(const char*, int, const char*, void*, int);
-    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(ManagerRequestFunc);
+    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(IPlugin::ManagerRequestFunc);
 
     std::shared_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
@@ -164,7 +187,7 @@ struct PluginManager::PlugMgrPrivate
     bool unloadPlugin(PluginPtr plugin);
 
     // Function called by plugins throught IPlugin::sendRequest()
-    static int handleRequest(const char* pluginName, int code, const char *receiver, void* data, int dataSize);
+    static uint16_t handleRequest(const char* sender, const char *receiver, uint16_t code, void* data, uint32_t *dataSize);
 };
 
 //
@@ -180,7 +203,7 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
         json tree = json::parse(metadata);
 
         // Check API version of the plugin
-        if(Version(tree.at("api").get<std::string>()).compatible("1.0.0"))
+        if(Version(tree.at("api").get<std::string>()).compatible(JP_PLUGIN_API))
         {
             PluginInfo info;
             info.name = strdup(tree["name"].get<std::string>().c_str());
@@ -273,15 +296,35 @@ bool PluginManager::PlugMgrPrivate::unloadPlugin(PluginPtr plugin)
 }
 
 // Static
-int PluginManager::PlugMgrPrivate::handleRequest(const char* pluginName,
-                                                 int code,
-                                                 const char *receiver,
-                                                 void *data,
-                                                 int dataSize)
+uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
+                                                      const char *receiver,
+                                                      uint16_t code,
+                                                      void *data,
+                                                      uint32_t *dataSize)
 {
+    std::cout << "Request from " << sender << " !" << std::endl;
+
     PluginManager::PlugMgrPrivate *_p = PluginManager::instance()._p;
 
-    std::cout << "Request from " << pluginName << " !" << std::endl;
+    // If receiver is null, the plugin manager is the receiver,
+    // otherwise, re-root the request to the corresponding plugin
+    if(receiver)
+    {
+        auto it = _p->pluginsMap.find(std::string(receiver));
+        if(it != _p->pluginsMap.end())
+        {
+            PluginPtr plugin = it->second;
+            if(plugin->lib.is_loaded() && plugin->iplugin)
+            {
+                return plugin->iplugin->handleRequest(sender, code, data, dataSize);
+            }
+        }
+
+        // An error occured
+        return 0;
+    }
+    // The receiver is the manager
+    // TODO: handle request depending on code
 
     return 0;
 }
@@ -355,9 +398,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
                 }
 
                 plugin->info = info;
-                const char* infoString = info.toString();
-                std::cout << infoString << std::endl;
-                free((char*)infoString);
+                std::cout << printableInfoString(info) << std::endl;
 
                 _p->pluginsMap[name] = plugin;
                 atLeastOneFound = true;
@@ -505,6 +546,12 @@ std::string PluginManager::appDirectory()
     return fsutil::appDir();
 }
 
+// Static
+std::string PluginManager::pluginApi()
+{
+    return JP_PLUGIN_API;
+}
+
 size_t PluginManager::pluginsCount() const
 {
     return _p->pluginsMap.size();
@@ -555,4 +602,31 @@ PluginInfo PluginManager::pluginInfo(const std::string &name) const
     if(hasPlugin(name))
         return _p->pluginsMap[name]->info;
     return PluginInfo();
+}
+
+// Static
+std::string PluginManager::printableInfoString(const PluginInfo &info)
+{
+    using namespace std;
+
+    if(!info.name)
+        return "Invalid PluginInfo";
+
+    string str = "Plugin info:\n";
+    str += "Name: " + string(info.name) + "\n";
+    str += "Pretty name: " + string(info.prettyName) + "\n";
+    str += "Version: " + string(info.version) + "\n";
+    str += "Author: " + string(info.author) + "\n";
+    str += "Url: " + string(info.url) + "\n";
+    str += "License: " + string(info.license) + "\n";
+    str += "Copyright: " + string(info.copyright) + "\n";
+    str += "Dependencies:\n";
+    for(int i=0; i < info.dependenciesNb; ++i)
+        str += " - " + string(info.dependencies[i].name) + " (" + string(info.dependencies[i].version) + ")\n";
+    return str;
+}
+
+std::string PluginManager::pluginPrintableInfo(const std::string &name) const
+{
+    return printableInfoString(pluginInfo(name));
 }

@@ -22,51 +22,26 @@
  * SOFTWARE.
  */
 
-#ifndef PLUGININFO_H
-#define PLUGININFO_H
+#include <iostream>
 
-namespace jp
+#include "pluginmanager.h"
+
+using namespace jp;
+
+void callBackFunc(const ReturnCode& code, const char* data)
 {
+    std::cout << code.message();
+    if(data)
+        std::cout << " (" << data << ")";
+    std::cout << std::endl;
+}
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * @struct Dependency
- * @brief Reprensents a dependency as specified in the meta.json file.
- */
-struct Dependency
+int main()
 {
-    const char* name;
-    const char* version;
-
-};
-
-/**
- * @struct PluginInfo
- * @brief Struct that contains all plugin metadata.
- * If name is an empty string, the metadata is invalid.
- */
-struct PluginInfo
-{
-    const char* name;
-    const char* prettyName;
-    const char* version;
-    const char* author;
-    const char* url;
-    const char* license;
-    const char* copyright;
-
-    // Dependencies array
-    int dependenciesNb = 0;
-    Dependency* dependencies = nullptr;
-};
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
-} // namespace jp
-
-#endif // PLUGININFO_H
+    PluginManager& mgr = PluginManager::instance();
+    std::string appDir(mgr.appDirectory());
+    std::cout << appDir << std::endl;
+    mgr.searchForPlugins(appDir + "/plugin", callBackFunc);
+    mgr.loadPlugins(callBackFunc);
+    mgr.unloadPlugins(callBackFunc);
+}

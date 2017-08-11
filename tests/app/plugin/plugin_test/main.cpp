@@ -22,51 +22,38 @@
  * SOFTWARE.
  */
 
-#ifndef PLUGININFO_H
-#define PLUGININFO_H
+#include <iostream>
 
-namespace jp
+#include <string>
+#include "iplugin.h"
+
+class PluginTest: public jp::IPlugin
 {
+    JP_DECLARE_PLUGIN(PluginTest, plugin_test)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+public:
 
-/**
- * @struct Dependency
- * @brief Reprensents a dependency as specified in the meta.json file.
- */
-struct Dependency
-{
-    const char* name;
-    const char* version;
+    void loaded() override
+    {
+        std::cout << "Loading PluginTest" << std::endl;
+        //sendRequest(0);
+    }
 
+    void aboutToBeUnloaded() override
+    {
+        std::cout << "Unloading PluginTest" << std::endl;
+    }
+
+    ~PluginTest()
+    {
+        std::cout << "Destructing PluginTest" << std::endl;
+    }
+
+    uint16_t handleRequest(const char*, uint16_t, void*, uint32_t*) override
+    { return 0; }
 };
 
-/**
- * @struct PluginInfo
- * @brief Struct that contains all plugin metadata.
- * If name is an empty string, the metadata is invalid.
- */
-struct PluginInfo
-{
-    const char* name;
-    const char* prettyName;
-    const char* version;
-    const char* author;
-    const char* url;
-    const char* license;
-    const char* copyright;
-
-    // Dependencies array
-    int dependenciesNb = 0;
-    Dependency* dependencies = nullptr;
-};
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
-} // namespace jp
-
-#endif // PLUGININFO_H
+JP_REGISTER_PLUGIN(PluginTest)
+// This file is generated at configure time by CMake and contains meta.json data
+// Must be placed AFTER JP_REGISTER_PLUGIN !!!
+#include "metadata.h"

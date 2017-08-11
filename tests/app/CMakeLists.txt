@@ -26,8 +26,9 @@
 
 cmake_minimum_required(VERSION 2.8)
 
-project(JustPlug)
-set(JP_SO_NAME justplug)
+project(JustPlug-TestApp)
+set(EXE_NAME justplug-testapp)
+set(PLUGIN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
 # Avoid in source building
 if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
@@ -36,66 +37,43 @@ endif()
 
 # Set to release build by default
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
-    set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE "Release")
 endif()
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
 
 #
 # Compiler flags
 #
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fvisibility=hidden -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fPIC")
 
 #
-# Find Boost
+# Add plugins projects
 #
 
-find_package(Boost COMPONENTS filesystem system)
-if(NOT Boost_FOUND)
-    message(FATAL_ERROR "Boost library not found !")
-endif()
-include_directories(${Boost_INCLUDE_DIRS})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}/plugin)
+add_subdirectory(plugin/plugin_test)
+add_subdirectory(plugin/plugin_1)
+add_subdirectory(plugin/plugin_2)
+add_subdirectory(plugin/plugin_3)
+add_subdirectory(plugin/plugin_4)
+add_subdirectory(plugin/plugin_5)
+add_subdirectory(plugin/plugin_6)
+add_subdirectory(plugin/plugin_7)
+add_subdirectory(plugin/plugin_8)
+add_subdirectory(plugin/plugin_9)
+add_subdirectory(plugin/plugin_10)
 
-#
-# Include thirdparty folder
-#
-include_directories(thirdparty)
+# Add JustPlug library
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../.." "${CMAKE_CURRENT_BINARY_DIR}/justplug")
+include_directories(${PLUGIN_INCLUDE_DIR})
 
-# Add whereami dependency
-file(
-    GLOB_RECURSE
-    whereami_files
-    thirdparty/whereami/src/*.c
-    thirdparty/whereami/src/*.h
+# Set executable output
+add_executable(
+    ${EXE_NAME}
+    main.cpp
 )
 
-# Add custom definitions
-add_definitions(
-    -DJP_PLUGIN_API="0.0.1"
-)
-
-# Add src files
-file (
-    GLOB_RECURSE
-    source_files
-    src/*.cpp
-    src/*.h
-)
-file( # Only for IDE
-    GLOB_RECURSE
-    include_files
-    include/*.h
-)
-
-include_directories(include)
-
-# Set library output
-add_library(
-    ${JP_SO_NAME}
-    SHARED
-    ${source_files}
-    ${include_files}
-    ${whereami_files}
-)
-
-target_link_libraries(${JP_SO_NAME} ${Boost_LIBRARIES})
-target_link_libraries(${JP_SO_NAME} dl)
+target_link_libraries(${EXE_NAME} justplug)

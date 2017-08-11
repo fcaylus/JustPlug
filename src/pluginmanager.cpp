@@ -121,7 +121,7 @@ const char* ReturnCode::message(const ReturnCode &code)
 // Internal structure to store plugins and their associated library
 struct Plugin
 {
-    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(IPlugin::ManagerRequestFunc);
+    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE());
 
     std::shared_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;

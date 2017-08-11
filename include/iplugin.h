@@ -48,7 +48,6 @@
  */
 #define JP_REGISTER_PLUGIN(className) _JP_REGISTER_PLUGIN__IMPL(className)
 
-
 /*****************************************************************************/
 /***** IPlugin class *********************************************************/
 /*****************************************************************************/
@@ -110,13 +109,18 @@ public:
                                    void* data,
                                    uint32_t* dataSize) = 0;
 
-    typedef uint16_t (*ManagerRequestFunc)(const char*, const char*, uint16_t, void*, uint32_t*);
-
 protected:
-    IPlugin(ManagerRequestFunc func) { _requestFunc = func; }
+
+// Implementation macro used to define the function pointer with the correct type
+// Typedefs are not used because the signature is also used by PluginManager and it
+// should not be part of the public API of IPlugin.
+#define _JP_MGR_REQUEST_FUNC_SIGNATURE(varName) \
+    uint16_t (*varName)(const char*, const char*, uint16_t, void*, uint32_t*)
+
+    IPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(func)) { _requestFunc = func; }
 
 private:
-    ManagerRequestFunc _requestFunc;
+    _JP_MGR_REQUEST_FUNC_SIGNATURE(_requestFunc);
     virtual const char* jp_name() = 0;
 
     IPlugin() = default;
@@ -197,12 +201,14 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
                   "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");    \
     static_assert(!jp_internal::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),   \
                   "Plugin name \"" #pluginName "\" cannot start with a digit");                     \
-    static_assert(*(const char*)(#pluginName) != '\0', "Plugin name must not be an empty string !");\
+    static_assert(*(const char*)(#pluginName) != '\0',                                              \
+                  "Plugin name must not be an empty string !");                                     \
     private:                                                                                        \
-        className(ManagerRequestFunc requestFunc): jp::IPlugin(requestFunc) {}                      \
+        className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc)): jp::IPlugin(requestFunc) {}         \
         const char* jp_name() override { return #pluginName; }                                      \
     public:                                                                                         \
-        static std::shared_ptr<jp::IPlugin> jp_createPlugin(ManagerRequestFunc requestFunc)         \
+        static std::shared_ptr<jp::IPlugin>                                                         \
+        jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc))                                \
         {                                                                                           \
             return std::shared_ptr<jp::IPlugin>(new className(requestFunc));                        \
         }                                                                                           \

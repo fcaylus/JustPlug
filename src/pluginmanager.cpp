@@ -370,7 +370,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
         try
         {
             boost::dll::shared_library lib(path);
-            if(lib.is_loaded() && lib.has("jp_name") && lib.has("jp_metadata"))
+            if(lib.is_loaded() && lib.has("jp_name") && lib.has("jp_metadata") && lib.has("jp_createPlugin"))
             {
                 std::cout << "Found library at: " << lib.location() << std::endl;
                 // This is a JustPlug library

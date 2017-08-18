@@ -218,7 +218,7 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
     extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                            \
     const char* jp_name = className::name();                                                    \
     extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                                       \
-    extern "C" JP_EXPORT_SYMBOL const void *jp_createPlugin;                                    \
+    extern "C" JP_EXPORT_SYMBOL const void* jp_createPlugin;                                    \
     const void * jp_createPlugin = reinterpret_cast<const void*>(                               \
                                    reinterpret_cast<intptr_t>(&className::jp_createPlugin));
 

@@ -61,7 +61,7 @@ inline std::string libraryExtension()
 #endif
 }
 
-// Retur the suffix for libraries (.extension)
+// Return the suffix for libraries (.extension)
 inline std::string librarySuffix()
 {
     return "." + libraryExtension();

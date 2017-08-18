@@ -203,26 +203,27 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
         if(Version(tree.at("api").get<std::string>()).compatible(JP_PLUGIN_API))
         {
             PluginInfo info;
-            info.name = strdup(tree["name"].get<std::string>().c_str());
-            info.prettyName = strdup(tree["prettyName"].get<std::string>().c_str());
-            info.version = strdup(tree["version"].get<std::string>().c_str());
-            info.author = strdup(tree["author"].get<std::string>().c_str());
-            info.url = strdup(tree["url"].get<std::string>().c_str());
-            info.license = strdup(tree["license"].get<std::string>().c_str());
-            info.copyright = strdup(tree["copyright"].get<std::string>().c_str());
+            info.name = strdup(tree.at("name").get<std::string>().c_str());
+            info.prettyName = strdup(tree.at("prettyName").get<std::string>().c_str());
+            info.version = strdup(tree.at("version").get<std::string>().c_str());
+            info.author = strdup(tree.at("author").get<std::string>().c_str());
+            info.url = strdup(tree.at("url").get<std::string>().c_str());
+            info.license = strdup(tree.at("license").get<std::string>().c_str());
+            info.copyright = strdup(tree.at("copyright").get<std::string>().c_str());
 
-            json jsonDep = tree["dependencies"];
+            json jsonDep = tree.at("dependencies");
             std::vector<Dependency> depList;
             for(json& jdep : jsonDep)
             {
                 Dependency dep;
-                dep.name = strdup(jdep["name"].get<std::string>().c_str());
-                dep.version = strdup(jdep["version"].get<std::string>().c_str());
+                dep.name = strdup(jdep.at("name").get<std::string>().c_str());
+                dep.version = strdup(jdep.at("version").get<std::string>().c_str());
                 depList.push_back(dep);
             }
 
             if(!depList.empty())
             {
+                // Convert std::vector to C-style array used by PluginInfo
                 info.dependencies = (Dependency*)std::malloc(sizeof(Dependency)*depList.size());
                 std::copy(depList.begin(), depList.end(), info.dependencies);
                 info.dependenciesNb = depList.size();

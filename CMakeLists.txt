@@ -46,16 +46,6 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fvisibility=hidden -fPIC")
 
 #
-# Find Boost
-#
-
-find_package(Boost COMPONENTS filesystem system)
-if(NOT Boost_FOUND)
-    message(FATAL_ERROR "Boost library not found !")
-endif()
-include_directories(${Boost_INCLUDE_DIRS})
-
-#
 # Include thirdparty folder
 #
 include_directories(thirdparty)
@@ -97,5 +87,4 @@ add_library(
     ${whereami_files}
 )
 
-target_link_libraries(${JP_SO_NAME} ${Boost_LIBRARIES})
 target_link_libraries(${JP_SO_NAME} dl)

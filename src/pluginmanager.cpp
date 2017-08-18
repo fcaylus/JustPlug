@@ -24,18 +24,14 @@
 
 #include "pluginmanager.h"
 
-// Used for DLL management
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/dll/shared_library.hpp>
-#include <boost/dll/shared_library_load_mode.hpp>
-#include <boost/dll/import.hpp>
-
 #include <iostream> // for std::cout
 #include <cstring> // for strdup
 #include <iterator>
-#include <algorithm>
+#include <algorithm> // for std::find
 #include <unordered_map>
 #include <type_traits> // for std::is_base_of
+
+#include "sharedlibrary.h"
 
 #include "version/version.h"
 #include "json/json.hpp"
@@ -125,8 +121,9 @@ struct Plugin
 
     std::shared_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
-    boost::dll::shared_library lib;
+    SharedLibrary lib;
     PluginInfo info;
+    std::string path;
 
     //
     // Flags used when loading
@@ -139,7 +136,7 @@ struct Plugin
     virtual ~Plugin()
     {
         // Just in case the plugins have not been unloaded (should not happen)
-        if(lib.is_loaded())
+        if(lib.isLoaded())
         {
             if(iplugin)
                 iplugin->aboutToBeUnloaded();
@@ -258,7 +255,7 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(PluginPtr plugin, ca
         {
             plugin->dependenciesExists = false;
             if(callbackFunc)
-                callbackFunc(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin->lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_NOT_FOUND, strdup(plugin->path.c_str()));
             return ReturnCode::LOAD_DEPENDENCY_NOT_FOUND;
         }
 
@@ -266,7 +263,7 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(PluginPtr plugin, ca
         {
             plugin->dependenciesExists = false;
             if(callbackFunc)
-                callbackFunc(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin->lib.location().string().c_str()));
+                callbackFunc(ReturnCode::LOAD_DEPENDENCY_BAD_VERSION, strdup(plugin->path.c_str()));
             return ReturnCode::LOAD_DEPENDENCY_BAD_VERSION;
         }
 
@@ -289,7 +286,7 @@ bool PluginManager::PlugMgrPrivate::unloadPlugin(PluginPtr plugin)
         plugin->iplugin.reset();
     }
     plugin->lib.unload();
-    const bool isLoaded = plugin->lib.is_loaded();
+    const bool isLoaded = plugin->lib.isLoaded();
     plugin.reset();
 
     return !isLoaded;
@@ -314,7 +311,7 @@ uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
         if(it != _p->pluginsMap.end())
         {
             PluginPtr plugin = it->second;
-            if(plugin->lib.is_loaded() && plugin->iplugin)
+            if(plugin->lib.isLoaded() && plugin->iplugin)
             {
                 return plugin->iplugin->handleRequest(sender, code, data, dataSize);
             }
@@ -367,47 +364,45 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
 
     for(const std::string& path : libList)
     {
-        try
+        PluginPtr plugin(new Plugin());
+        plugin->lib.load(path);
+        if(plugin->lib.isLoaded()
+           && plugin->lib.hasSymbol("jp_name")
+           && plugin->lib.hasSymbol("jp_metadata")
+           && plugin->lib.hasSymbol("jp_createPlugin"))
         {
-            boost::dll::shared_library lib(path);
-            if(lib.is_loaded() && lib.has("jp_name") && lib.has("jp_metadata") && lib.has("jp_createPlugin"))
+            // This is a JustPlug library
+            std::cout << "Found library at: " << path << std::endl;
+            plugin->path = path;
+            std::string name = plugin->lib.get<const char*>("jp_name");;
+
+            // name must be unique for each plugin
+            if(_p->pluginsMap.count(name) == 1)
             {
-                std::cout << "Found library at: " << lib.location() << std::endl;
-                // This is a JustPlug library
-                PluginPtr plugin(new Plugin());
-                plugin->lib = lib;
-                const std::string name = lib.get<const char*>("jp_name");
-                std::cout << name << std::endl;
-
-                // name must be unique for each plugin
-                if(_p->pluginsMap.count(name) == 1)
-                {
-                    if(callbackFunc)
-                        callbackFunc(ReturnCode::SEARCH_NAME_ALREADY_EXISTS, strdup(lib.location().string().c_str()));
-                    continue;
-                }
-
-                std::cout << "Library name: " << name << std::endl;
-
-                PluginInfo info = _p->parseMetadata(lib.get<const char[]>("jp_metadata"));
-                if(!info.name)
-                {
-                    if(callbackFunc)
-                        callbackFunc(ReturnCode::SEARCH_CANNOT_PARSE_METADATA, strdup(lib.location().string().c_str()));
-                    continue;
-                }
-
-                plugin->info = info;
-                std::cout << printableInfoString(info) << std::endl;
-
-                _p->pluginsMap[name] = plugin;
-                atLeastOneFound = true;
+                if(callbackFunc)
+                    callbackFunc(ReturnCode::SEARCH_NAME_ALREADY_EXISTS, strdup(path.c_str()));
+                continue;
             }
+
+            std::cout << "Library name: " << name << std::endl;
+
+            PluginInfo info = _p->parseMetadata(plugin->lib.get<const char[]>("jp_metadata"));
+            if(!info.name)
+            {
+                if(callbackFunc)
+                    callbackFunc(ReturnCode::SEARCH_CANNOT_PARSE_METADATA, strdup(path.c_str()));
+                continue;
+            }
+
+            plugin->info = info;
+            std::cout << printableInfoString(info) << std::endl;
+
+            _p->pluginsMap[name] = plugin;
+            atLeastOneFound = true;
         }
-        // Can be thrown by shared_lib constructor in case of insufficient memory
-        catch(const std::bad_alloc&)
+        else
         {
-            std::cout << "Cannot load (insufficient memory): " << path << std::endl;
+            plugin.reset();
         }
     }
 
@@ -492,7 +487,6 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
         // Only load the plugin if it's not already loaded
         if(!plugin->iplugin)
         {
-            // get_alias cannot be used because plugins must not depends on boost headers
             plugin->creator = *(plugin->lib.get<Plugin::iplugin_create_t*>("jp_createPlugin"));
             plugin->iplugin = plugin->creator(PlugMgrPrivate::handleRequest);
             plugin->iplugin->loaded();
@@ -587,7 +581,7 @@ bool PluginManager::hasPlugin(const std::string &name, const std::string &minVer
 
 bool PluginManager::isPluginLoaded(const std::string &name) const
 {
-    return hasPlugin(name) && _p->pluginsMap[name]->lib.is_loaded() && _p->pluginsMap[name]->iplugin;
+    return hasPlugin(name) && _p->pluginsMap[name]->lib.isLoaded() && _p->pluginsMap[name]->iplugin;
 }
 
 template<typename PluginType>

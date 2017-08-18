@@ -32,6 +32,7 @@
 
 #include <vector>
 #include <string>
+#include <list>
 
 namespace jp_private
 {

@@ -25,8 +25,7 @@
 #ifndef IPLUGIN_H
 #define IPLUGIN_H
 
-#include <memory> // for std::shared_ptr
-#include <cstdint>
+#include <cstdint> // for intN_t types
 #include "confinfo.h"
 
 /*****************************************************************************/
@@ -207,12 +206,11 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
         className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc)): jp::IPlugin(requestFunc) {}         \
         const char* jp_name() override { return #pluginName; }                                      \
     public:                                                                                         \
-        static std::shared_ptr<jp::IPlugin>                                                         \
-        jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc))                                \
+        static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc))            \
         {                                                                                           \
-            return std::shared_ptr<jp::IPlugin>(new className(requestFunc));                        \
+            return new className(requestFunc);                                                      \
         }                                                                                           \
-        static const char* name() { return #pluginName; }
+        static constexpr const char* name() { return #pluginName; }
 
 #define _JP_REGISTER_PLUGIN__IMPL(className)                                                    \
     extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                            \

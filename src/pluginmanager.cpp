@@ -26,10 +26,11 @@
 
 #include <iostream> // for std::cout
 #include <cstring> // for strdup
-#include <iterator>
-#include <algorithm> // for std::find
-#include <unordered_map>
+#include <iterator> // for std::find
+#include <algorithm> // for std::copy
+#include <unordered_map> // for std::unordered_map
 #include <type_traits> // for std::is_base_of
+#include <memory> // for std::shared_ptr and std::unique_ptr
 
 #include "sharedlibrary.h"
 
@@ -117,9 +118,9 @@ const char* ReturnCode::message(const ReturnCode &code)
 // Internal structure to store plugins and their associated library
 struct Plugin
 {
-    typedef std::shared_ptr<IPlugin> (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE());
+    typedef IPlugin* (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE());
 
-    std::shared_ptr<IPlugin> iplugin;
+    std::unique_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
     SharedLibrary lib;
     PluginInfo info;
@@ -489,7 +490,7 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
         if(!plugin->iplugin)
         {
             plugin->creator = *(plugin->lib.get<Plugin::iplugin_create_t*>("jp_createPlugin"));
-            plugin->iplugin = plugin->creator(PlugMgrPrivate::handleRequest);
+            plugin->iplugin.reset(plugin->creator(PlugMgrPrivate::handleRequest));
             plugin->iplugin->loaded();
         }
     }

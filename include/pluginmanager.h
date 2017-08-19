@@ -36,8 +36,20 @@
 namespace jp
 {
 
+/**
+ * @brief The ReturnCode struct
+ * Every member functions of PluginManager returns a ReturnCode object.
+ * This object can be use to identify the error.
+ * Implicit cast to bool allows easy checks of functions' success.
+ *
+ * To get a more meaningful message about the error, meessage() can be used.
+ */
 struct JP_EXPORT_SYMBOL ReturnCode
 {
+    /**
+     * @brief Enum of all possible errors
+     * @todo Document each error
+     */
     enum Type
     {
         SUCCESS = 0,
@@ -57,19 +69,54 @@ struct JP_EXPORT_SYMBOL ReturnCode
         // Raised by unloadPlugins()
         UNLOAD_NOT_ALL = 300
     };
+    /**
+     * @brief The type of the error (the error code)
+     */
     Type type;
 
+    /**
+     * @brief Get a meaningful error message.
+     */
     const char* message() const;
+    /**
+     * @brief Get a meaningful error message for a specified @a code
+     */
     static const char* message(const ReturnCode& code);
 
     explicit operator bool() { return type == Type::SUCCESS; }
 
+    //
     // Constructors
-    ReturnCode(); // Default to SUCCESS
-    ReturnCode(const bool& val); // Default to SUCCESS or UNKNOWN_ERROR depending on val
+
+    /**
+     * @brief Default constructor
+     * Set type to Type::SUCCESS.
+     */
+    ReturnCode();
+    /**
+     * @brief Constructor
+     * Set type to Type::SUCCESS if val is true, else set to Type::UNKNOWN_ERROR
+     * @param val
+     */
+    ReturnCode(const bool& val);
+    /**
+     * @brief Constructor
+     * Set type to codeType
+     * @param codeType
+     */
     ReturnCode(const Type& codeType);
-    ReturnCode(const ReturnCode& code); // Copy constructor
-    // Destructor
+    /**
+     * @brief Copy constructor
+     */
+    ReturnCode(const ReturnCode& code);
+    /**
+     * @brief operator =
+     */
+    const ReturnCode& operator=(const ReturnCode& code);
+
+    /**
+     * @brief Default constructor
+     */
     ~ReturnCode();
 };
 

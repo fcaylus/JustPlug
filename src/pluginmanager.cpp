@@ -61,6 +61,12 @@ ReturnCode::ReturnCode(const ReturnCode &code): type(code.type)
 ReturnCode::~ReturnCode()
 {}
 
+const ReturnCode& ReturnCode::operator=(const ReturnCode& code)
+{
+    type = code.type;
+    return *this;
+}
+
 const char* ReturnCode::message() const
 {
     return message(*this);

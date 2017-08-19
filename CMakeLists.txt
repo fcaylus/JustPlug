@@ -39,11 +39,18 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Needed on Windows
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
 #
 # Compiler flags
 #
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -fvisibility=hidden")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -fvisibility=hidden")
+
+if(UNIX OR MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
+endif()
 
 #
 # Include thirdparty folder
@@ -87,4 +94,6 @@ add_library(
     ${whereami_files}
 )
 
-target_link_libraries(${JP_SO_NAME} dl)
+if(UNIX)
+    target_link_libraries(${JP_SO_NAME} dl)
+endif()

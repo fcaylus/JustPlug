@@ -32,13 +32,11 @@
 #if defined(CONFINFO_PLATFORM_LINUX) || defined(CONFINFO_PLATFORM_CYGWIN)
 #include <dlfcn.h>
 #elif defined(CONFINFO_PLATFORM_WIN32)
-// TODO
+#include <windows.h>
 #endif
 
 namespace jp
 {
-
-//TODO: implement windows support
 
 /**
  * @brief Provides cross-platform low-level access to a shared library.
@@ -140,7 +138,7 @@ public:
 
     /**
      * @brief Get a symbol
-     * Returns the symbol specified by @a symbolName, and cast it to the type @Type.
+     * Returns the symbol specified by @a symbolName, and cast it to the type Type.
      * It's the user responsability to ensure that Type match the library's symbol type.
      * @note Returns nullptr if the library doesn't have the symbol.
      * @param symbolName the symbol Name
@@ -193,7 +191,7 @@ public:
 #if defined(CONFINFO_PLATFORM_LINUX) || defined(CONFINFO_PLATFORM_CYGWIN)
     typedef void* NativeLibHandle;
 #elif defined(CONFINFO_PLATFORM_WIN32)
-    typedef HINSTANCE NativeLibHandle;
+    typedef HMODULE NativeLibHandle;
 #endif
 
     /**
@@ -250,6 +248,63 @@ private:
             return nullptr;
         }
         return symbol;
+    }
+#elif defined(CONFINFO_PLATFORM_WIN32) // Windows implementation
+
+    // Return a string explaining the last error
+    std::string getWindowsError()
+    {
+        DWORD lastError = GetLastError();
+        TCHAR buffer[256];
+        if(lastError != 0)
+        {
+            FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+                          nullptr,
+                          lastError,
+                          MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
+                          buffer,
+                          256-1,
+                          nullptr);
+
+            return std::string(buffer);
+        }
+        return std::string();
+    }
+
+    bool loadImpl(const char* path)
+    {
+        _lastError.clear();
+        _handle = LoadLibrary(path);
+        if(!_handle)
+        {
+            _lastError = getWindowsError();
+            return false;
+        }
+        return true;
+    }
+
+    bool unloadImpl()
+    {
+        _lastError.clear();
+        if(!FreeLibrary(_handle))
+        {
+            _lastError = getWindowsError();
+            return false;
+        }
+        _handle = nullptr;
+        return true;
+    }
+
+    void* getImpl(const char* symbolName)
+    {
+        _lastError.clear();
+        void* addr = (void*)GetProcAddress(_handle, symbolName);
+        if(!addr)
+        {
+            _lastError = getWindowsError();
+            return nullptr;
+        }
+        return addr;
     }
 #endif
 };

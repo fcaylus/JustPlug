@@ -310,7 +310,8 @@ inline bool operator<(const Version& v1, const Version& v2)
                     // Both prerelease strings are not empty
                     std::vector<std::string> pr1 = v1.prereleaseIdentifiers();
                     std::vector<std::string> pr2 = v2.prereleaseIdentifiers();
-                    const size_t maxI = std::min(pr1.size(), pr2.size());
+					// Add parenthesis around std::min in case windows.h is included and NOMINMAX not defined
+                    const size_t maxI = (std::min)(pr1.size(), pr2.size());
                     for(size_t i=0; i < maxI; ++i)
                     {
                         // Checks if the prerelease is only digits

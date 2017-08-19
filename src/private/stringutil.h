@@ -52,14 +52,14 @@ char* strdup_custom(const char* s)
 }
 
 // Set the correct version of strdup depending on the system
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
+#if defined(CONFINFO_PLATFORM_LINUX) || defined(CONFINFO_PLATFORM_MACOS) || defined(CONFINFO_PLATFORM_CYGWIN) || defined(CONFINFO_COMPILER_GCC)
 // It's a POSIX env, strdup is already defined
 #  define strdup(x) strdup(x)
-#elif CONFINFO_COMPILER_MSVC
+#elif defined(CONFINFO_COMPILER_MSVC)
 #  define strdup(x) _strdup(x)
 #else
 // Use the custom strdup
-#  define strdup(x) jp_private::StringUtil::strdup_custom(x)
+//#  define strdup(x) jp_private::StringUtil::strdup_custom(x)
 #endif
 
 } // namespace StringUtil

@@ -53,9 +53,9 @@ namespace fsutil
 inline std::string libraryExtension()
 {
 #if defined(CONFINFO_PLATFORM_WIN32) || defined(CONFINFO_PLATFORM_CYGWIN)
-    return "dll"
+    return "dll";
 #elif defined(CONFINFO_PLATFORM_MACOS)
-    return "dylib"
+    return "dylib";
 #else
     return "so";
 #endif

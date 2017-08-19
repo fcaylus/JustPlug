@@ -35,7 +35,7 @@
 
 #include "confinfo.h"
 
-namespace jp_internal
+namespace jp_private
 {
 namespace StringUtil
 {
@@ -59,10 +59,10 @@ char* strdup_custom(const char* s)
 #  define strdup(x) _strdup(x)
 #else
 // Use the custom strdup
-#  define strdup(x) jp_internal::StringUtil::strdup_custom(x)
+#  define strdup(x) jp_private::StringUtil::strdup_custom(x)
 #endif
 
 } // namespace StringUtil
-} // namespace jp_internal
+} // namespace jp_private
 
 #endif // STRINGUTIL_H

@@ -156,7 +156,7 @@ public:
      * @brief Get the plugin API.
      * This is the API of the plugin's interfaces (IPlugin, ...).
      * The version follows the Semantic Versioning 2.0.0 (http://semver.org/spec/v2.0.0.html).
-     * @note ABI compatibility is only guaranteed for a specified MAJOR version.
+     * @note ABI compatibility is only guaranteed for the same MAJOR version.
      * @return
      */
     static std::string pluginApi();
@@ -207,11 +207,11 @@ public:
     bool isPluginLoaded(const std::string& name) const;
 
     /**
-     * @brief Get the plugin Object for the specified plugin.
-     * @return The object or NULL if the plugin is not loaded or not of the type PluginType.
+     * @brief Get the plugin object for the specified plugin.
+     * @note The user can cast the object to the corresponding type if he wants.
+     * @return The object or NULL if the plugin is not loaded.
      */
-    template<typename PluginType = IPlugin>
-    std::shared_ptr<PluginType> pluginObject(const std::string& name);
+    std::shared_ptr<IPlugin> pluginObject(const std::string& name) const;
 
     /**
      * @brief Get the PluginInfo object for the specified plugin

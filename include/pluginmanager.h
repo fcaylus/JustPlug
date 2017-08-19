@@ -204,50 +204,41 @@ public:
      * This is the API of the plugin's interfaces (IPlugin, ...).
      * The version follows the Semantic Versioning 2.0.0 (http://semver.org/spec/v2.0.0.html).
      * @note ABI compatibility is only guaranteed for the same MAJOR version.
-     * @return
      */
     static std::string pluginApi();
 
     /**
      * @brief Get the number of plugins found*
-     * @par Complexity:
-     * Constant
-     * @return
+     * @complexity Constant
      */
     size_t pluginsCount() const;
     /**
      * @brief Get a list of all plugins.
-     * @par Complexity:
-     * Linear in the number of plugins
-     * @return
+     * @complexity Linear in the number of plugins
      */
     std::vector<std::string> pluginsList() const;
 
     /**
      * @brief Get a list of all locations where plugins were found.
-     * @return
+     * @complexity Constant
      */
     std::vector<std::string> pluginsLocation() const;
 
     /**
      * @brief Checks if a plugin exists.
-     * @par Complexity:
-     * Constant on average, worst case linear in the number of plugins
+     * @complexity Constant on average, worst case linear in the number of plugins
      * @param name The name of the plugin
-     * @return
      */
     bool hasPlugin(const std::string& name) const;
     /**
      * @brief Checks if a plugin exists and is compatible with @a minVersion.
-     * Same complexity as hasPlugin(const std::string& name).
-     * @return
+     * @complexity Same complexity as hasPlugin(const std::string& name).
      */
     bool hasPlugin(const std::string& name, const std::string& minVersion) const;
 
     /**
      * @brief Checks if a plugin is loaded.
-     * @par Complexity:
-     * Constant on average, worst case linear in the number of plugins
+     * @complexity Constant on average, worst case linear in the number of plugins
      * @param name The plugin's name
      * @return true if the plugin is loaded, else returns false (not loaded or not found)
      */
@@ -262,6 +253,7 @@ public:
 
     /**
      * @brief Get the PluginInfo object for the specified plugin
+     * @note It's the responsability of the user to free the strings contained by PluginInfo.
      * @param name
      * @return The PluginInfo object.
      */

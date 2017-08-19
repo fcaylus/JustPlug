@@ -25,7 +25,6 @@
 #include "pluginmanager.h"
 
 #include <iostream> // for std::cout
-#include <cstring> // for strdup
 #include <iterator> // for std::find
 #include <algorithm> // for std::copy
 #include <unordered_map> // for std::unordered_map
@@ -40,6 +39,7 @@
 #include "private/graph.h"
 #include "private/tribool.h"
 #include "private/fsutil.h"
+#include "private/stringutil.h"
 
 using namespace jp;
 using namespace jp_private;
@@ -115,6 +115,72 @@ const char* ReturnCode::message(const ReturnCode &code)
 // Implementation Classes
 //
 
+// PluginInfoStd is used internally by the PLuginManager
+// When the user wants to access the metadata, a PluginInfo object is returned
+// with only C-String to ensure ABI compatibility
+struct PluginInfoStd
+{
+    std::string name;
+    std::string prettyName;
+    std::string version;
+    std::string author;
+    std::string url;
+    std::string license;
+    std::string copyright;
+
+    struct Dependency
+    {
+        std::string name;
+        std::string version;
+    };
+    std::vector<Dependency> dependencies;
+
+    // A copy of each string is performed
+    PluginInfo toPluginInfo()
+    {
+        PluginInfo info;
+        info.name = strdup(name.c_str());
+        info.prettyName = strdup(prettyName.c_str());
+        info.version = strdup(version.c_str());
+        info.author = strdup(author.c_str());
+        info.url = strdup(url.c_str());
+        info.license = strdup(license.c_str());
+        info.copyright = strdup(copyright.c_str());
+
+        // Convert std::vector to C-style array used by PluginInfo
+        // with jp::Dependency objects (not PluginInfoStd::Dependency)
+        std::vector<jp::Dependency> depList;
+        depList.reserve(dependencies.size());
+        for(const Dependency& dep : dependencies)
+            depList.emplace_back(jp::Dependency{strdup(dep.name.c_str()), strdup(dep.version.c_str())});
+
+        info.dependencies = (jp::Dependency*)std::malloc(sizeof(jp::Dependency)*dependencies.size());
+        std::copy(depList.begin(), depList.end(), info.dependencies);
+        info.dependenciesNb = dependencies.size();
+
+        return info;
+    }
+
+    std::string toString()
+    {
+        if(name.empty())
+            return "Invalid PluginInfo";
+
+        std::string str = "Plugin info:\n";
+        str += "Name: " + name + "\n";
+        str += "Pretty name: " + prettyName + "\n";
+        str += "Version: " + version + "\n";
+        str += "Author: " + author + "\n";
+        str += "Url: " + url + "\n";
+        str += "License: " + license + "\n";
+        str += "Copyright: " + copyright + "\n";
+        str += "Dependencies:\n";
+        for(const Dependency& dep : dependencies)
+            str += " - " + dep.name + " (" + dep.version + ")\n";
+        return str;
+    }
+};
+
 // Internal structure to store plugins and their associated library
 struct Plugin
 {
@@ -123,8 +189,9 @@ struct Plugin
     std::unique_ptr<IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
     SharedLibrary lib;
-    PluginInfo info;
+
     std::string path;
+    PluginInfoStd info;
 
     //
     // Flags used when loading
@@ -144,15 +211,6 @@ struct Plugin
             iplugin.reset();
             lib.unload();
         }
-
-        free((char*)info.name);
-        free((char*)info.prettyName);
-        free((char*)info.version);
-        free((char*)info.author);
-        free((char*)info.url);
-        free((char*)info.license);
-        free((char*)info.copyright);
-        free((char*)info.dependencies);
     }
 
     Plugin() = default;
@@ -179,7 +237,7 @@ struct PluginManager::PlugMgrPrivate
     //
     // Functions
 
-    PluginInfo parseMetadata(const char* metadata);
+    PluginInfoStd parseMetadata(const char* metadata);
     ReturnCode checkDependencies(PluginPtr plugin, PluginManager::callback callbackFunc);
 
     bool unloadPlugin(PluginPtr plugin);
@@ -193,7 +251,7 @@ struct PluginManager::PlugMgrPrivate
 //
 
 // Parse json metadata usign json.hpp (in thirdparty/ folder)
-PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
+PluginInfoStd PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
 {
     try
     {
@@ -203,31 +261,22 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
         // Check API version of the plugin
         if(Version(tree.at("api").get<std::string>()).compatible(JP_PLUGIN_API))
         {
-            PluginInfo info;
-            info.name = strdup(tree.at("name").get<std::string>().c_str());
-            info.prettyName = strdup(tree.at("prettyName").get<std::string>().c_str());
-            info.version = strdup(tree.at("version").get<std::string>().c_str());
-            info.author = strdup(tree.at("author").get<std::string>().c_str());
-            info.url = strdup(tree.at("url").get<std::string>().c_str());
-            info.license = strdup(tree.at("license").get<std::string>().c_str());
-            info.copyright = strdup(tree.at("copyright").get<std::string>().c_str());
+            PluginInfoStd info;
+            info.name = tree.at("name").get<std::string>();
+            info.prettyName = tree.at("prettyName").get<std::string>();
+            info.version = tree.at("version").get<std::string>();
+            info.author = tree.at("author").get<std::string>();
+            info.url = tree.at("url").get<std::string>();
+            info.license = tree.at("license").get<std::string>();
+            info.copyright = tree.at("copyright").get<std::string>();
 
             json jsonDep = tree.at("dependencies");
-            std::vector<Dependency> depList;
             for(json& jdep : jsonDep)
             {
-                Dependency dep;
-                dep.name = strdup(jdep.at("name").get<std::string>().c_str());
-                dep.version = strdup(jdep.at("version").get<std::string>().c_str());
-                depList.push_back(dep);
-            }
-
-            if(!depList.empty())
-            {
-                // Convert std::vector to C-style array used by PluginInfo
-                info.dependencies = (Dependency*)std::malloc(sizeof(Dependency)*depList.size());
-                std::copy(depList.begin(), depList.end(), info.dependencies);
-                info.dependenciesNb = depList.size();
+                PluginInfoStd::Dependency dep;
+                dep.name = jdep.at("name").get<std::string>();
+                dep.version = jdep.at("version").get<std::string>();
+                info.dependencies.push_back(dep);
             }
 
             return info;
@@ -235,7 +284,7 @@ PluginInfo PluginManager::PlugMgrPrivate::parseMetadata(const char *metadata)
     }
     catch(const std::exception&) {}
 
-    return PluginInfo();
+    return PluginInfoStd();
 }
 
 // Checks if the dependencies required by the plugin exists and are compatible
@@ -248,7 +297,7 @@ ReturnCode PluginManager::PlugMgrPrivate::checkDependencies(PluginPtr plugin, ca
                                                   : (pluginsMap.count(plugin->info.name) == 0 ? ReturnCode::LOAD_DEPENDENCY_NOT_FOUND
                                                                                               : ReturnCode::LOAD_DEPENDENCY_BAD_VERSION);
 
-    for(int i=0; i < plugin->info.dependenciesNb; ++i)
+    for(size_t i=0; i < plugin->info.dependencies.size(); ++i)
     {
         const std::string& depName = plugin->info.dependencies[i].name;
         const std::string& depVer = plugin->info.dependencies[i].version;
@@ -388,8 +437,8 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
 
             std::cout << "Library name: " << name << std::endl;
 
-            PluginInfo info = _p->parseMetadata(plugin->lib.get<const char[]>("jp_metadata"));
-            if(!info.name)
+            PluginInfoStd info = _p->parseMetadata(plugin->lib.get<const char[]>("jp_metadata"));
+            if(info.name.empty())
             {
                 if(callbackFunc)
                     callbackFunc(ReturnCode::SEARCH_CANNOT_PARSE_METADATA, strdup(path.c_str()));
@@ -397,7 +446,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
             }
 
             plugin->info = info;
-            std::cout << printableInfoString(info) << std::endl;
+            std::cout << info.toString() << std::endl;
 
             _p->pluginsMap[name] = plugin;
             atLeastOneFound = true;
@@ -458,7 +507,7 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
         const int nodeId = val.second->graphId;
         if(nodeId != -1)
         {
-            for(int i=0; i<val.second->info.dependenciesNb; ++i)
+            for(size_t i=0; i<val.second->info.dependencies.size(); ++i)
                 nodeList[nodeId].parentNodes.push_back(_p->pluginsMap[val.second->info.dependencies[i].name]->graphId);
         }
     }
@@ -599,34 +648,7 @@ std::shared_ptr<PluginType> PluginManager::pluginObject(const std::string& name)
 
 PluginInfo PluginManager::pluginInfo(const std::string &name) const
 {
-    if(hasPlugin(name))
-        return _p->pluginsMap[name]->info;
-    return PluginInfo();
-}
-
-// Static
-std::string PluginManager::printableInfoString(const PluginInfo &info)
-{
-    using namespace std;
-
-    if(!info.name)
-        return "Invalid PluginInfo";
-
-    string str = "Plugin info:\n";
-    str += "Name: " + string(info.name) + "\n";
-    str += "Pretty name: " + string(info.prettyName) + "\n";
-    str += "Version: " + string(info.version) + "\n";
-    str += "Author: " + string(info.author) + "\n";
-    str += "Url: " + string(info.url) + "\n";
-    str += "License: " + string(info.license) + "\n";
-    str += "Copyright: " + string(info.copyright) + "\n";
-    str += "Dependencies:\n";
-    for(int i=0; i < info.dependenciesNb; ++i)
-        str += " - " + string(info.dependencies[i].name) + " (" + string(info.dependencies[i].version) + ")\n";
-    return str;
-}
-
-std::string PluginManager::pluginPrintableInfo(const std::string &name) const
-{
-    return printableInfoString(pluginInfo(name));
+    if(!hasPlugin(name))
+        return PluginInfo();
+    return _p->pluginsMap[name]->info.toPluginInfo();
 }

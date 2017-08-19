@@ -25,6 +25,8 @@
 #ifndef PLUGININFO_H
 #define PLUGININFO_H
 
+#include <cstdlib>
+
 namespace jp
 {
 
@@ -40,7 +42,6 @@ struct Dependency
 {
     const char* name;
     const char* version;
-
 };
 
 /**
@@ -61,6 +62,27 @@ struct PluginInfo
     // Dependencies array
     int dependenciesNb = 0;
     Dependency* dependencies = nullptr;
+
+    /**
+     * @brief Free all strings stored by this object
+     */
+    void free()
+    {
+        std::free((char*)name);
+        std::free((char*)prettyName);
+        std::free((char*)version);
+        std::free((char*)author);
+        std::free((char*)url);
+        std::free((char*)license);
+        std::free((char*)copyright);
+        std::free((char*)dependencies);
+
+        for(int i=0; i<dependenciesNb; ++i)
+        {
+            std::free((char*)dependencies[i].name);
+            std::free((char*)dependencies[i].version);
+        }
+    }
 };
 
 #ifdef __cplusplus

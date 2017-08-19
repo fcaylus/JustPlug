@@ -153,14 +153,6 @@ public:
     static std::string appDirectory();
 
     /**
-     * @brief Convert the plugin information struct to a printable string
-     * @param info The PluginInfo object to print
-     * @return the printable string representation
-     * @note This function may be slow due to the internal conversion to std::string.
-     */
-    static std::string printableInfoString(const PluginInfo& info);
-
-    /**
      * @brief Get the plugin API.
      * This is the API of the plugin's interfaces (IPlugin, ...).
      * The version follows the Semantic Versioning 2.0.0 (http://semver.org/spec/v2.0.0.html).
@@ -227,14 +219,6 @@ public:
      * @return The PluginInfo object.
      */
     PluginInfo pluginInfo(const std::string& name) const;
-
-    /**
-     * @brief Returns a printable string of specified plugin information
-     * @note Same as PluginManager::printableInfoString(PluginManager::instance().pluginInfo(name))
-     * @param name The plugin name
-     * @return The printable string
-     */
-    std::string pluginPrintableInfo(const std::string& name) const;
 
 private:
     PluginManager();

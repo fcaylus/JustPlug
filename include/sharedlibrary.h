@@ -170,7 +170,7 @@ public:
      * @overload getRawAddress(const char* symbolName)
      */
     void* getRawAddress(const std::string& symbolName)
-    { return getRawAdress(symbolName.c_str()); }
+    { return getRawAddress(symbolName.c_str()); }
 
     /**
      * @brief Checks if the last call raise an error, or not.

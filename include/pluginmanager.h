@@ -29,6 +29,7 @@
 #include <vector> // for std::vector
 #include <functional> // for std::function
 #include <memory> // for std::shared_ptr
+#include <ostream> // for std::ostream
 
 #include "plugininfo.h"
 #include "iplugin.h"
@@ -141,11 +142,37 @@ public:
 
     /**
      * @brief Signature for all callback functions used for error report in this class
-     * Callback functions must have two parameters:
+     * Callback functions must accept two parameters:
      *  - const ReturnCode& returnCode
      *  - const char* errorDetails (may be null and MUST be free by the receiver if not)
      */
     typedef std::function<void(const ReturnCode&, const char*)> callback;
+
+    /**
+     * @brief Enable log output
+     * If @a enable is true, the manager will ouput log information to the stream specified
+     * by setLogStream or to std::cout by default.
+     * If the user wants to disable all log outputs (to speed up the program ?), call this function
+     * with @a enable set to false.
+     * @param enable
+     * @see setLogStream(), disableLogOutput()
+     */
+    void enableLogOutput(const bool& enable = true);
+    /**
+     * @brief Disable log output
+     * Same as enableLogOutput(false)
+     * @see enableLogOutput()
+     */
+    void disableLogOutput();
+
+    /**
+     * @brief Set stream to output log information.
+     * @a logStream will be used to output every log information.
+     * By default, std::cout is used.
+     * @param logStream The stream to use
+     * @see enableLogOutput()
+     */
+    void setLogStream(std::ostream &logStream);
 
     /**
      * @brief Search for all JustPlug plugins in pluginDir.

@@ -128,6 +128,11 @@ struct PluginManager::PlugMgrPrivate
     // List all locations to load plugins
     std::vector<std::string> locations;
 
+    // Stream used to print log outputs.
+    // (default set to std::cout)
+    std::reference_wrapper<std::ostream> log = std::ref(std::cout);
+    bool useLog = true; // log output is enable by default
+
     //
     // Functions
 
@@ -244,9 +249,10 @@ uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
                                                       void *data,
                                                       uint32_t *dataSize)
 {
-    std::cout << "Request from " << sender << " !" << std::endl;
-
     PluginManager::PlugMgrPrivate *_p = PluginManager::instance()._p;
+
+    if(_p->useLog)
+        _p->log.get() << "Request from " << sender << " !" << std::endl;
 
     // If receiver is null, the plugin manager is the receiver,
     // otherwise, re-root the request to the corresponding plugin
@@ -293,6 +299,23 @@ PluginManager& PluginManager::instance()
     return inst;
 }
 
+void PluginManager::setLogStream(std::ostream& logStream)
+{
+    _p->log = std::ref(logStream);
+}
+
+void PluginManager::enableLogOutput(const bool &enable)
+{
+    if(!_p->useLog && enable)
+        _p->log.get() << "Enable log output" << std::endl;
+    _p->useLog = enable;
+}
+
+void PluginManager::disableLogOutput()
+{
+    enableLogOutput(false);
+}
+
 ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool recursive, callback callbackFunc)
 {
     bool atLeastOneFound = false;
@@ -317,7 +340,8 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
            && plugin->lib.hasSymbol("jp_createPlugin"))
         {
             // This is a JustPlug library
-            std::cout << "Found library at: " << path << std::endl;
+            if(_p->useLog)
+                _p->log.get() << "Found library at: " << path << std::endl;
             plugin->path = path;
             std::string name = plugin->lib.get<const char*>("jp_name");;
 
@@ -329,7 +353,8 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
                 continue;
             }
 
-            std::cout << "Library name: " << name << std::endl;
+            if(_p->useLog)
+                _p->log.get() << "Library name: " << name << std::endl;
 
             PluginInfoStd info = _p->parseMetadata(plugin->lib.get<const char[]>("jp_metadata"));
             if(info.name.empty())
@@ -340,7 +365,8 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
             }
 
             plugin->info = info;
-            std::cout << info.toString() << std::endl;
+            if(_p->useLog)
+                _p->log.get() << info.toString() << std::endl;
 
             _p->pluginsMap[name] = plugin;
             atLeastOneFound = true;
@@ -421,9 +447,12 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
         return ReturnCode::LOAD_DEPENDENCY_CYCLE;
     }
 
-    std::cout << "Load order:" << std::endl;
-    for(auto const& name : _p->loadOrderList)
-        std::cout << " - " << name << std::endl;
+    if(_p->useLog)
+    {
+        _p->log.get() << "Load order:" << std::endl;
+        for(auto const& name : _p->loadOrderList)
+            _p->log.get() << " - " << name << std::endl;
+    }
 
     // Fourth step: load plugins
     for(const std::string& name : _p->loadOrderList)

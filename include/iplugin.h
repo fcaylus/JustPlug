@@ -80,12 +80,12 @@ public:
     virtual void aboutToBeUnloaded() = 0;
 
     /**
-     * @brief Send a request to the plugin manager or the other plugins
-     * @param receiver The name of the receiver plugin (If null, the request is send to the plugin's manager)
+     * @brief Send a request to the plugin manager or other plugins
+     * @param receiver The name of the receiver plugin (If NULL, the request is send to the plugin's manager)
      * @param code The code identifying the request. Each plugin has to provide a list of available codes
      * @param data A pointer to potential data to send (resp. retrieve) to (resp. from) the receiver.
-     * @param dataSize A pointer to the send of the data. If null, no data is read or write.
-     * @return A code depending on the success of the operation.
+     * @param dataSize A pointer to the size of the data. Must not be NULL if data are sent or expected.
+     * @return A code depending on the success of the operation (0 on success). Each receiver has to describe to meaning of each code.
      */
     virtual uint16_t sendRequest(const char* receiver,
                                  uint16_t code,
@@ -107,6 +107,47 @@ public:
                                    uint16_t code,
                                    void* data,
                                    uint32_t* dataSize) = 0;
+
+    /**
+     * @brief The ManagerRequest enum
+     */
+    enum ManagerRequest
+    {
+        // Get the app directory
+        GET_APPDIRECTORY = 0,
+
+        // Get the plugin API
+        GET_PLUGINAPI = 1,
+        // Get the number of plugins the manager is aware of
+        GET_PLUGINSCOUNT = 2,
+
+        // Get the PluginInfo object for the specified plugin (this plugin if data is null)
+        GET_PLUGININFO = 10,
+        // Get the version for the specified plugin (this plugin if data is null)
+        GET_PLUGINVERSION = 11,
+
+        // Check if the specified plugin exists
+        CHECK_PLUGIN = 100,
+        // Check if the specified plugin is loaded
+        CHECK_PLUGINLOADED = 101,
+    };
+
+    /**
+     * @brief The RequestReturnCode enum
+     */
+    enum RequestReturnCode
+    {
+        SUCCESS = 0,
+        COMMON_ERROR = 1,
+        UNKNOWN_REQUEST = 2,
+        DATASIZE_NULL = 3,
+
+        // Used for CHECK_* requests
+        TRUE = SUCCESS,
+        FALSE = COMMON_ERROR,
+
+        NOT_FOUND = 4
+    };
 
 protected:
 

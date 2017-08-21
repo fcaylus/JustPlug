@@ -269,12 +269,75 @@ uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
         }
 
         // An error occured
-        return 0;
+        return IPlugin::NOT_FOUND;
     }
     // The receiver is the manager
-    // TODO: handle request depending on code
 
-    return 0;
+    // All requests to the manager sent or receive data, so check here if dataSize is null
+    if(!dataSize)
+        return IPlugin::DATASIZE_NULL;
+
+    switch(code)
+    {
+    case IPlugin::GET_APPDIRECTORY:
+    {
+        data = (void*)strdup(PluginManager::appDirectory().c_str());
+        *dataSize = strlen((char*)data);
+        break;
+    }
+    case IPlugin::GET_PLUGINAPI:
+    {
+        data = (void*)strdup(PluginManager::pluginApi().c_str());
+        *dataSize = strlen((char*)data);
+        break;
+    }
+    case IPlugin::GET_PLUGINSCOUNT:
+    {
+        data = (void*)(new size_t(PluginManager::instance().pluginsCount()));
+        *dataSize = sizeof(size_t);
+        break;
+    }
+    case IPlugin::GET_PLUGININFO:
+    {
+        PluginInfo info = PluginManager::instance().pluginInfo(data ? (const char*)data : sender);
+        if(!info.name)
+            return IPlugin::NOT_FOUND;
+
+        data = (void*)(new PluginInfo(info));
+        *dataSize = sizeof(info);
+        break;
+    }
+    case IPlugin::GET_PLUGINVERSION:
+    {
+        PluginInfo info = PluginManager::instance().pluginInfo(data ? (const char*)data : sender);
+        if(!info.name)
+            return IPlugin::NOT_FOUND;
+
+        data = (void*)strdup(info.version);
+        *dataSize = strlen((char*)data);
+        info.free();
+        break;
+    }
+    case IPlugin::CHECK_PLUGIN:
+    {
+        if(PluginManager::instance().hasPlugin((const char*)data))
+            return IPlugin::TRUE;
+        return IPlugin::FALSE;
+        break;
+    }
+    case IPlugin::CHECK_PLUGINLOADED:
+    {
+        if(PluginManager::instance().isPluginLoaded((const char*)data))
+            return IPlugin::TRUE;
+        return IPlugin::FALSE;
+        break;
+    }
+    default:
+        return IPlugin::UNKNOWN_REQUEST;
+        break;
+    }
+
+    return IPlugin::SUCCESS;
 }
 
 /*****************************************************************************/

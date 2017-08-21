@@ -142,7 +142,7 @@ struct PluginManager::PlugMgrPrivate
     bool unloadPlugin(PluginPtr plugin);
 
     // Function called by plugins throught IPlugin::sendRequest()
-    static uint16_t handleRequest(const char* sender, const char *receiver, uint16_t code, void* data, uint32_t *dataSize);
+    static uint16_t handleRequest(const char* sender, const char *receiver, uint16_t code, void** data, uint32_t *dataSize);
 };
 
 //
@@ -246,7 +246,7 @@ bool PluginManager::PlugMgrPrivate::unloadPlugin(PluginPtr plugin)
 uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
                                                       const char *receiver,
                                                       uint16_t code,
-                                                      void *data,
+                                                      void **data,
                                                       uint32_t *dataSize)
 {
     PluginManager::PlugMgrPrivate *_p = PluginManager::instance()._p;
@@ -281,53 +281,53 @@ uint16_t PluginManager::PlugMgrPrivate::handleRequest(const char *sender,
     {
     case IPlugin::GET_APPDIRECTORY:
     {
-        data = (void*)strdup(PluginManager::appDirectory().c_str());
-        *dataSize = strlen((char*)data);
+        *data = (void*)strdup(PluginManager::appDirectory().c_str());
+        *dataSize = strlen((char*)*data);
         break;
     }
     case IPlugin::GET_PLUGINAPI:
     {
-        data = (void*)strdup(PluginManager::pluginApi().c_str());
-        *dataSize = strlen((char*)data);
+        *data = (void*)strdup(PluginManager::pluginApi().c_str());
+        *dataSize = strlen((char*)*data);
         break;
     }
     case IPlugin::GET_PLUGINSCOUNT:
     {
-        data = (void*)(new size_t(PluginManager::instance().pluginsCount()));
+        *data = (void*)(new size_t(PluginManager::instance().pluginsCount()));
         *dataSize = sizeof(size_t);
         break;
     }
     case IPlugin::GET_PLUGININFO:
     {
-        PluginInfo info = PluginManager::instance().pluginInfo(data ? (const char*)data : sender);
+        PluginInfo info = PluginManager::instance().pluginInfo(*data ? (const char*)*data : sender);
         if(!info.name)
             return IPlugin::NOT_FOUND;
 
-        data = (void*)(new PluginInfo(info));
+        *data = (void*)(new PluginInfo(info));
         *dataSize = sizeof(info);
         break;
     }
     case IPlugin::GET_PLUGINVERSION:
     {
-        PluginInfo info = PluginManager::instance().pluginInfo(data ? (const char*)data : sender);
+        PluginInfo info = PluginManager::instance().pluginInfo(*data ? (const char*)*data : sender);
         if(!info.name)
             return IPlugin::NOT_FOUND;
 
-        data = (void*)strdup(info.version);
-        *dataSize = strlen((char*)data);
+        *data = (void*)strdup(info.version);
+        *dataSize = strlen((char*)*data);
         info.free();
         break;
     }
     case IPlugin::CHECK_PLUGIN:
     {
-        if(PluginManager::instance().hasPlugin((const char*)data))
+        if(PluginManager::instance().hasPlugin((const char*)*data))
             return IPlugin::TRUE;
         return IPlugin::FALSE;
         break;
     }
     case IPlugin::CHECK_PLUGINLOADED:
     {
-        if(PluginManager::instance().isPluginLoaded((const char*)data))
+        if(PluginManager::instance().isPluginLoaded((const char*)*data))
             return IPlugin::TRUE;
         return IPlugin::FALSE;
         break;

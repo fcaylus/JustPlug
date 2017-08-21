@@ -51,6 +51,9 @@
  */
 #define JP_REGISTER_PLUGIN(className) _JP_REGISTER_PLUGIN__IMPL(className)
 
+// Simply avoid the "unused" warning
+#define JP_UNUSED(x) (void)x
+
 /*****************************************************************************/
 /***** IPlugin class *********************************************************/
 /*****************************************************************************/
@@ -95,7 +98,7 @@ public:
      */
     virtual uint16_t sendRequest(const char* receiver,
                                  uint16_t code,
-                                 void* data,
+                                 void** data,
                                  uint32_t* dataSize) final
     {
         return _requestFunc(jp_name(), receiver, code, data, dataSize);
@@ -103,6 +106,10 @@ public:
 
     /**
      * @brief Handle request send by other plugins to this plugin.
+     *
+     * Each plugin have to re-implement this function if they want to be able to accept request from others.
+     * If the plugin doesn't re-implement this function, it will return UNKNOWN_REQUEST code
+     * by default.
      * @param sender
      * @param code
      * @param data
@@ -111,8 +118,12 @@ public:
      */
     virtual uint16_t handleRequest(const char* sender,
                                    uint16_t code,
-                                   void* data,
-                                   uint32_t* dataSize) = 0;
+                                   void** data,
+                                   uint32_t* dataSize)
+    {
+        JP_UNUSED(sender);JP_UNUSED(code);JP_UNUSED(data);JP_UNUSED(dataSize);
+        return RequestReturnCode::UNKNOWN_REQUEST;
+    }
 
     /**
      * @brief The ManagerRequest enum
@@ -161,7 +172,7 @@ protected:
 // Typedefs are not used because the signature is also used by PluginManager and it
 // should not be part of the public API of IPlugin.
 #define _JP_MGR_REQUEST_FUNC_SIGNATURE(varName) \
-    uint16_t (*varName)(const char*, const char*, uint16_t, void*, uint32_t*)
+    uint16_t (*varName)(const char*, const char*, uint16_t, void**, uint32_t*)
 
     //! @cond
     // Constructor used by the factory method to creates the plugin object

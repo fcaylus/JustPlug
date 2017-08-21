@@ -41,9 +41,6 @@ public:
     {
         std::cout << "Unloading Plugin 7" << std::endl;
     }
-
-    uint16_t handleRequest(const char*, uint16_t, void*, uint32_t*) override
-    { return 0; }
 };
 
 JP_REGISTER_PLUGIN(Plugin)

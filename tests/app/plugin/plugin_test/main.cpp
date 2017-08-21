@@ -36,7 +36,11 @@ public:
     void loaded() override
     {
         std::cout << "Loading PluginTest" << std::endl;
-        //sendRequest(0);
+        char* buffer = nullptr;
+        uint32_t dataSize = 0;
+        sendRequest(nullptr, IPlugin::GET_APPDIRECTORY, (void**)&buffer, &dataSize);
+        if(buffer)
+            std::cout << buffer << std::endl;
     }
 
     void aboutToBeUnloaded() override
@@ -48,9 +52,6 @@ public:
     {
         std::cout << "Destructing PluginTest" << std::endl;
     }
-
-    uint16_t handleRequest(const char*, uint16_t, void*, uint32_t*) override
-    { return 0; }
 };
 
 JP_REGISTER_PLUGIN(PluginTest)

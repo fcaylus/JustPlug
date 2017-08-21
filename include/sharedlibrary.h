@@ -40,6 +40,7 @@ namespace jp
 
 /**
  * @brief Provides cross-platform low-level access to a shared library.
+ *
  * This class allows to load/unload a library and access its symbols.
  *
  * Each SharedLibrary object represents one library and is constructed using the
@@ -52,25 +53,28 @@ class SharedLibrary
 public:
 
     /**
-     * @brief Default constructor
+     * @brief Default constructor.
+     *
      * Construct an object with no library associated with.
      */
     SharedLibrary() {}
     /**
      * @brief Creates a SharedLibrary object and immediatly try to load it.
+     *
      * @param path The path to the shared library.
      */
     SharedLibrary(const char* path)
     { load(path); }
     /**
-     * @overload SharedLibrary(const char* path)
+     * @overload
+     * @see SharedLibrary(const char* path)
      */
     SharedLibrary(const std::string& path)
     { load(path); }
 
 
     /**
-     * @brief Default destructor
+     * @brief Default destructor.
      */
     ~SharedLibrary() {}
 
@@ -79,7 +83,8 @@ public:
     const SharedLibrary& operator=(const SharedLibrary& other) = delete;
 
     /**
-     * @brief Load a library
+     * @brief Load a library.
+     *
      * If the object already represents a loaded library, this function will
      * first unload the previous library, and only after, load the new one.
      * @note If the object was constructed using a path, the library is already loaded.
@@ -95,7 +100,8 @@ public:
     }
 
     /**
-     * @overload bool load(const char* path)
+     * @overload
+     * @see load(const char* path)
      */
     bool load(const std::string& path)
     { return load(path.c_str()); }
@@ -108,7 +114,7 @@ public:
     { return _handle != nullptr; }
 
     /**
-     * @brief Unload the library
+     * @brief Unload the library.
      * @return true on success (if the library is already unloaded, returns false)
      */
     bool unload()
@@ -116,7 +122,8 @@ public:
 
 
     /**
-     * @brief Checks for symbol
+     * @brief Checks for symbol.
+     *
      * Checks if the library has the symbol specified by @a symbolName.
      * @param symbolName name of the symbole
      * @return true if the library has the symbol
@@ -131,13 +138,15 @@ public:
     }
 
     /**
-     * @overload bool hasSymbol(const char* symbolName)
+     * @overload
+     * @see hasSymbol(const char* symbolName)
      */
     bool hasSymbol(const std::string& symbolName)
     { return hasSymbol(symbolName.c_str()); }
 
     /**
-     * @brief Get a symbol
+     * @brief Get a symbol.
+     *
      * Returns the symbol specified by @a symbolName, and cast it to the type Type.
      * It's the user responsability to ensure that Type match the library's symbol type.
      * @note Returns nullptr if the library doesn't have the symbol.
@@ -149,14 +158,15 @@ public:
     { return *(reinterpret_cast<Type*>(reinterpret_cast<uintptr_t>(getImpl(symbolName)))); }
 
     /**
-     * @overload get(const char* symbolName)
+     * @overload
+     * @see get(const char* symbolName)
      */
     template<typename Type>
     Type& get(const std::string& symbolName)
     { return get<Type>(symbolName.c_str()); }
 
     /**
-     * @brief Get the address of a symbol
+     * @brief Get the address of a symbol.
      * @note Returns nullptr if the library doesn't have the symbol.
      * @param symbolName
      * @return The address
@@ -165,13 +175,15 @@ public:
     { return getImpl(symbolName); }
 
     /**
-     * @overload getRawAddress(const char* symbolName)
+     * @overload
+     * @see getRawAddress(const char* symbolName)
      */
     void* getRawAddress(const std::string& symbolName)
     { return getRawAddress(symbolName.c_str()); }
 
     /**
      * @brief Checks if the last call raise an error, or not.
+     *
      * Please not that each call of load(), unload(), get...() clears previous errors.
      * So this function can be used to check the success of the last called function.
      * @return true if an error occured
@@ -181,7 +193,8 @@ public:
     { return !_lastError.empty(); }
 
     /**
-     * @brief Get the last error string
+     * @brief Get the last error string.
+     *
      * @return The error string
      * @see hasError()
      */
@@ -196,6 +209,7 @@ public:
 
     /**
      * @brief Get the native handle used on the system.
+     *
      * NativeLibHandle is a typedef for the native handle type used on the system.
      * @return The handle.
      */

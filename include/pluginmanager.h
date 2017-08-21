@@ -38,17 +38,18 @@ namespace jp
 {
 
 /**
- * @brief The ReturnCode struct
+ * @brief The ReturnCode struct.
+ *
  * Every member functions of PluginManager returns a ReturnCode object.
  * This object can be use to identify the error.
  * Implicit cast to bool allows easy checks of functions' success.
  *
- * To get a more meaningful message about the error, meessage() can be used.
+ * To get a more meaningful message about the error, message() can be used.
  */
 struct JP_EXPORT_SYMBOL ReturnCode
 {
     /**
-     * @brief Enum of all possible errors
+     * @brief Enum of all possible errors.
      * @todo Document each error
      */
     enum Type
@@ -71,7 +72,7 @@ struct JP_EXPORT_SYMBOL ReturnCode
         UNLOAD_NOT_ALL = 300
     };
     /**
-     * @brief The type of the error (the error code)
+     * @brief The type of the error (the error code).
      */
     Type type;
 
@@ -80,50 +81,59 @@ struct JP_EXPORT_SYMBOL ReturnCode
      */
     const char* message() const;
     /**
-     * @brief Get a meaningful error message for a specified @a code
+     * @brief Get a meaningful error message for a specified @a code.
      */
     static const char* message(const ReturnCode& code);
-
-    explicit operator bool() { return type == Type::SUCCESS; }
 
     //
     // Constructors
 
     /**
-     * @brief Default constructor
+     * @brief Default constructor.
+     *
      * Set type to Type::SUCCESS.
      */
     ReturnCode();
     /**
-     * @brief Constructor
+     * @brief Constructor.
+     *
      * Set type to Type::SUCCESS if val is true, else set to Type::UNKNOWN_ERROR
      * @param val
      */
     ReturnCode(const bool& val);
     /**
-     * @brief Constructor
+     * @brief Constructor.
+     *
      * Set type to codeType
      * @param codeType
      */
     ReturnCode(const Type& codeType);
     /**
-     * @brief Copy constructor
+     * @brief Copy constructor.
      */
     ReturnCode(const ReturnCode& code);
+
+    /**
+     * @brief Default constructor.
+     */
+    ~ReturnCode();
+
     /**
      * @brief operator =
      */
     const ReturnCode& operator=(const ReturnCode& code);
-
     /**
-     * @brief Default constructor
+     * @brief Implicit bool operator.
+     *
+     * A ReturnCode is evaluated to true if type == Type::SUCCESS, otherwise false.
      */
-    ~ReturnCode();
+    explicit operator bool() { return type == Type::SUCCESS; }
 };
 
 /**
  * @class PluginManager
  * @brief Main class to manage all plugins.
+ *
  * Since it is a singleton-class, only one instance can be created.
  */
 class JP_EXPORT_SYMBOL PluginManager
@@ -133,6 +143,7 @@ public:
 
     /**
      * @brief Return an instance of the plugin manager.
+     *
      * Calling instance() several times at different places always return a reference
      * to the same object. This allow the program to manage plugins and access informations
      * from different places.
@@ -141,7 +152,8 @@ public:
     static PluginManager& instance();
 
     /**
-     * @brief Signature for all callback functions used for error report in this class
+     * @brief Signature for all callback functions used for error report in this class.
+     *
      * Callback functions must accept two parameters:
      *  - const ReturnCode& returnCode
      *  - const char* errorDetails (may be null and MUST be free by the receiver if not)
@@ -149,7 +161,8 @@ public:
     typedef std::function<void(const ReturnCode&, const char*)> callback;
 
     /**
-     * @brief Enable log output
+     * @brief Enable log output.
+     *
      * If @a enable is true, the manager will ouput log information to the stream specified
      * by setLogStream or to std::cout by default.
      * If the user wants to disable all log outputs (to speed up the program ?), call this function
@@ -159,7 +172,8 @@ public:
      */
     void enableLogOutput(const bool& enable = true);
     /**
-     * @brief Disable log output
+     * @brief Disable log output.
+     *
      * Same as enableLogOutput(false)
      * @see enableLogOutput()
      */
@@ -167,6 +181,7 @@ public:
 
     /**
      * @brief Set stream to output log information.
+     *
      * @a logStream will be used to output every log information.
      * By default, std::cout is used.
      * @param logStream The stream to use
@@ -176,6 +191,7 @@ public:
 
     /**
      * @brief Search for all JustPlug plugins in pluginDir.
+     *
      * This function only load the librairies in order to retrieve the metadata.
      * To actually load the "plugin object" and launch it, you must call loadPlugins() after.
      * @note This function can be called several times if plugins are in different dirs.
@@ -196,13 +212,15 @@ public:
 
     /**
      * @brief Load all plugins found by previous searchForPlugins().
+     *
      * @param tryToContinue If true, the manager will try to load other plugins if some have errors.
      * @param callbackFunc Callback function.
      * @return true if all plugins was successfully loaded.
      */
     ReturnCode loadPlugins(bool tryToContinue, callback callbackFunc);
     /**
-     * @brief Overloaded function
+     * @brief Overloaded function.
+     *
      * Same as loadPlugins(bool tryToContinue, callback callbackFunc) with tryToContinue set to true.
      * @param callbackFunc
      */
@@ -210,6 +228,7 @@ public:
 
     /**
      * @brief Unload all loaded plugins.
+     *
      * After this function, if the user wants to reload the plugins, he must recall searchForPlugins first.
      * @param callbackFunc Callback function.
      * @return true if all plugins are successfully unloaded.
@@ -221,13 +240,14 @@ public:
     //
 
     /**
-     * @brief Returns the directory path of the main application
+     * @brief Returns the directory path of the main application.
      * @return a path to the application's directory
      */
     static std::string appDirectory();
 
     /**
      * @brief Get the plugin API.
+     *
      * This is the API of the plugin's interfaces (IPlugin, ...).
      * The version follows the Semantic Versioning 2.0.0 (http://semver.org/spec/v2.0.0.html).
      * @note ABI compatibility is only guaranteed for the same MAJOR version.
@@ -235,7 +255,7 @@ public:
     static std::string pluginApi();
 
     /**
-     * @brief Get the number of plugins found*
+     * @brief Get the number of plugins found.
      * @complexity Constant
      */
     size_t pluginsCount() const;

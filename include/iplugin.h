@@ -34,16 +34,20 @@
 
 /**
  * @brief Allow the plugin class to create the factory method.
+ *
  * @a pluginName must be an ASCII string with only letters, digits and '_', and not starting with a digit
  * (just like a C identifier).
  * @note Must be declared AT THE BEGINNING of the class definition.
+ * @related jp::IPlugin
  */
 #define JP_DECLARE_PLUGIN(className, pluginName) _JP_DECLARE_PLUGIN__IMPL(className, pluginName)
 
 
 /**
  * @brief Allow the plugin class to export the correct symbols.
+ *
  * @note Must be declared AFTER the class definition.
+ * @related jp::IPlugin
  */
 #define JP_REGISTER_PLUGIN(className) _JP_REGISTER_PLUGIN__IMPL(className)
 
@@ -65,6 +69,7 @@ public:
 
     /**
      * @brief Called by the Plugin Manager when the plugin is loaded.
+     *
      * The plugin class should use this function to do it's initialisation stuff.
      * @note This function is always called after all dependencies have beeen loaded,
      * so it's safe to use them in this function.
@@ -72,6 +77,7 @@ public:
     virtual void loaded() = 0;
     /**
      * @brief Called by the Plugin Manager just before the unloading of the plugin.
+     *
      * The plugin should use this function to do all his destruction stuff.
      * @note All dependencies remains valid until the return of this function.
      * @note The plugin object is deleted and the library unloaded just after the
@@ -157,7 +163,10 @@ protected:
 #define _JP_MGR_REQUEST_FUNC_SIGNATURE(varName) \
     uint16_t (*varName)(const char*, const char*, uint16_t, void*, uint32_t*)
 
+    //! @cond
+    // Constructor used by the factory method to creates the plugin object
     IPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(func)) { _requestFunc = func; }
+    //! @endcond
 
 private:
     _JP_MGR_REQUEST_FUNC_SIGNATURE(_requestFunc);

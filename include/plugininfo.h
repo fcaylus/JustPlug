@@ -37,31 +37,35 @@ extern "C" {
 /**
  * @struct Dependency
  * @brief Reprensents a dependency as specified in the meta.json file.
+ *
+ * A list of dependencies is stored in each PluginInfo object.
+ * @see jp::PluginInfo
  */
 struct Dependency
 {
-    const char* name;
-    const char* version;
+    const char* name; //!< The name of the dependency
+    const char* version; //!< The version of the dependency
 };
 
 /**
  * @struct PluginInfo
  * @brief Struct that contains all plugin metadata.
+ *
  * If name is an empty string, the metadata is invalid.
  */
 struct PluginInfo
 {
-    const char* name;
-    const char* prettyName;
-    const char* version;
-    const char* author;
-    const char* url;
-    const char* license;
-    const char* copyright;
+    const char* name; //!< The name of the plugin
+    const char* prettyName; //!< The formatted name of the plugin (using for user outputs)
+    const char* version; //!< The version of the plugin
+    const char* author; //!< The author of the plugin
+    const char* url; //!< The url of the plugin's website
+    const char* license; //!< The license of the plugin
+    const char* copyright; //!< The copyright statement of the plugin
 
     // Dependencies array
-    int dependenciesNb = 0;
-    Dependency* dependencies = nullptr;
+    int dependenciesNb = 0; //!< The number of dependencies
+    Dependency* dependencies = nullptr; //!< The list of all dependencies
 
     /**
      * @brief Free all strings stored by this object

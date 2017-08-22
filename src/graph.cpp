@@ -22,47 +22,55 @@
  * SOFTWARE.
  */
 
-#ifndef STRINGUTIL_H
-#define STRINGUTIL_H
+#include "private/graph.h"
 
-/*
- * This file is an internal header. It's not part of the public API,
- * and may change at any moment.
- */
+using namespace jp_private;
 
-#include <cstring>
-#include <cstdlib>
-
-#include "confinfo.h"
-
-namespace jp_private
-{
-namespace StringUtil
+// Constructor
+Graph::Graph(const NodeList& nodeList): _nodeList(nodeList)
 {
 
-// strdup is not part of the C standard but part of POSIX
-// So, define the function here
-inline char* strdup_custom(const char* s)
-{
-    size_t size = strlen(s) + 1;
-    char *p = (char*)malloc(size);
-    if(p)
-        memcpy(p, s, size);
-    return p;
 }
 
-// Set the correct version of strdup depending on the system
-#if defined(CONFINFO_PLATFORM_LINUX) || defined(CONFINFO_PLATFORM_MACOS) || defined(CONFINFO_PLATFORM_CYGWIN) || defined(CONFINFO_COMPILER_GCC)
-// It's a POSIX env, strdup is already defined
-#  define strdup(x) strdup(x)
-#elif defined(CONFINFO_COMPILER_MSVC)
-#  define strdup(x) _strdup(x)
-#else
-// Use the custom strdup
-//#  define strdup(x) jp_private::StringUtil::strdup_custom(x)
-#endif
+Graph::NodeNamesList Graph::topologicalSort(bool& error)
+{
+    NodeNamesList list;
+    list.reserve(_nodeList.size());
+    for(Node& node: _nodeList)
+    {
+        if(node.flag == UNMARKED)
+        {
+            if(!visitNode(node, &list))
+            {
+                error = true;
+                return NodeNamesList();
+            }
+        }
+    }
 
-} // namespace StringUtil
-} // namespace jp_private
+    error = false;
+    return list;
+}
 
-#endif // STRINGUTIL_H
+//
+// Private
+//
+
+// implement depth search algorithm
+bool Graph::visitNode(Node& node, NodeNamesList* list)
+{
+    if(node.flag == MARK_PERMANENT)
+        return true;
+    else if(node.flag == MARK_TEMP)
+        return false; // it's not a directed acyclic graph
+
+    node.flag = MARK_TEMP;
+    for(int parentId : node.parentNodes)
+    {
+        if(!visitNode(_nodeList[parentId], list))
+            return false;
+    }
+    node.flag = MARK_PERMANENT;
+    list->push_back(*(node.name));
+    return true;
+}

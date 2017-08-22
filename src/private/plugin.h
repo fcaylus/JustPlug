@@ -30,17 +30,15 @@
  * and may change at any moment.
  */
 
-#include <string>
+#include <string> // for std::string
 #include <memory> // for std::shared_ptr
-#include <vector>
-#include <algorithm> // for std::copy
+#include <vector> // for std::vector
 #include <functional> // for std::function
 
 #include "plugininfo.h"
 #include "iplugin.h"
 #include "sharedlibrary.h"
 
-#include "stringutil.h"
 #include "tribool.h"
 
 namespace jp_private
@@ -64,52 +62,13 @@ struct PluginInfoStd
         std::string name;
         std::string version;
     };
+
     std::vector<Dependency> dependencies;
 
     // A copy of each string is performed
-    jp::PluginInfo toPluginInfo()
-    {
-        jp::PluginInfo info;
-        info.name = strdup(name.c_str());
-        info.prettyName = strdup(prettyName.c_str());
-        info.version = strdup(version.c_str());
-        info.author = strdup(author.c_str());
-        info.url = strdup(url.c_str());
-        info.license = strdup(license.c_str());
-        info.copyright = strdup(copyright.c_str());
+    jp::PluginInfo toPluginInfo();
 
-        // Convert std::vector to C-style array used by PluginInfo
-        // with jp::Dependency objects (not PluginInfoStd::Dependency)
-        std::vector<jp::Dependency> depList;
-        depList.reserve(dependencies.size());
-        for(const Dependency& dep : dependencies)
-            depList.emplace_back(jp::Dependency{strdup(dep.name.c_str()), strdup(dep.version.c_str())});
-
-        info.dependencies = (jp::Dependency*)std::malloc(sizeof(jp::Dependency)*dependencies.size());
-        std::copy(depList.begin(), depList.end(), info.dependencies);
-        info.dependenciesNb = dependencies.size();
-
-        return info;
-    }
-
-    std::string toString()
-    {
-        if(name.empty())
-            return "Invalid PluginInfo";
-
-        std::string str = "Plugin info:\n";
-        str += "Name: " + name + "\n";
-        str += "Pretty name: " + prettyName + "\n";
-        str += "Version: " + version + "\n";
-        str += "Author: " + author + "\n";
-        str += "Url: " + url + "\n";
-        str += "License: " + license + "\n";
-        str += "Copyright: " + copyright + "\n";
-        str += "Dependencies:\n";
-        for(const Dependency& dep : dependencies)
-            str += " - " + dep.name + " (" + dep.version + ")\n";
-        return str;
-    }
+    std::string toString();
 };
 
 // Internal structure to store plugins and their associated library
@@ -132,17 +91,7 @@ struct Plugin
     int graphId = -1;
 
     // Destructor
-    virtual ~Plugin()
-    {
-        // Just in case the plugins have not been unloaded (should not happen)
-        if(lib.isLoaded())
-        {
-            if(iplugin)
-                iplugin->aboutToBeUnloaded();
-            iplugin.reset();
-            lib.unload();
-        }
-    }
+    virtual ~Plugin();
 
     Plugin() = default;
 

@@ -397,6 +397,7 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, bool re
     {
         PluginPtr plugin(new Plugin());
         plugin->lib.load(path);
+
         if(plugin->lib.isLoaded()
            && plugin->lib.hasSymbol("jp_name")
            && plugin->lib.hasSymbol("jp_metadata")

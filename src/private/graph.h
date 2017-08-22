@@ -63,53 +63,17 @@ public:
     typedef std::vector<std::string> NodeNamesList;
     typedef std::vector<Node> NodeList;
 
-    Graph(const NodeList& nodeList): _nodeList(nodeList)
-    {
-    }
+    Graph(const NodeList& nodeList);
 
     // This sort use a Depth-first search algorithm as described at:
     // https://en.wikipedia.org/wiki/Topological_sorting#Depth-first_search
-    NodeNamesList topologicalSort(bool& error)
-    {
-        NodeNamesList list;
-        list.reserve(_nodeList.size());
-        for(Node& node: _nodeList)
-        {
-            if(node.flag == UNMARKED)
-            {
-                if(!visitNode(node, &list))
-                {
-                    error = true;
-                    return NodeNamesList();
-                }
-            }
-        }
-
-        error = false;
-        return list;
-    }
+    NodeNamesList topologicalSort(bool& error);
 
 private:
     NodeList _nodeList;
     std::vector<int> _unmarkedNodes;
 
-    bool visitNode(Node& node, NodeNamesList* list)
-    {
-        if(node.flag == MARK_PERMANENT)
-            return true;
-        else if(node.flag == MARK_TEMP)
-            return false; // it's not a directed acyclic graph
-
-        node.flag = MARK_TEMP;
-        for(int parentId : node.parentNodes)
-        {
-            if(!visitNode(_nodeList[parentId], list))
-                return false;
-        }
-        node.flag = MARK_PERMANENT;
-        list->push_back(*(node.name));
-        return true;
-    }
+    bool visitNode(Node& node, NodeNamesList* list);
 };
 
 } // namespace jp_private

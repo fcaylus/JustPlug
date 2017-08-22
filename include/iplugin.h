@@ -73,7 +73,7 @@ public:
     /**
      * @brief Called by the Plugin Manager when the plugin is loaded.
      *
-     * The plugin class should use this function to do it's initialisation stuff.
+     * The plugin class should use this function to do its initialisation stuff.
      * @note This function is always called after all dependencies have beeen loaded,
      * so it's safe to use them in this function.
      */

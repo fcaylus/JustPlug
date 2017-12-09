@@ -34,6 +34,11 @@
 #include "plugininfo.h"
 #include "iplugin.h"
 
+namespace jp_private
+{
+struct PlugMgrPrivate;
+}
+
 namespace jp
 {
 
@@ -314,9 +319,8 @@ private:
     PluginManager(const PluginManager&) = delete;
     const PluginManager& operator=(const PluginManager&) = delete;
 
-    struct PlugMgrPrivate;
-    PlugMgrPrivate* const _p;
-    friend struct PlugMgrPrivate;
+    jp_private::PlugMgrPrivate* const _p;
+    friend struct jp_private::PlugMgrPrivate;
 };
 
 } // namespace jp

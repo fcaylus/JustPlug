@@ -25,8 +25,11 @@
 #ifndef IPLUGIN_H
 #define IPLUGIN_H
 
+#include <cstring> // for strcmp
 #include <cstdint> // for intN_t types
 #include "confinfo.h"
+
+#include <iostream>
 
 /*****************************************************************************/
 /***** Macros definitions ****************************************************/
@@ -95,13 +98,14 @@ public:
      * @param data A pointer to potential data to send (resp. retrieve) to (resp. from) the receiver.
      * @param dataSize A pointer to the size of the data. Must not be NULL if data are sent or expected.
      * @return A code depending on the success of the operation (0 on success). Each receiver has to describe to meaning of each code.
+     *         Codes below 100 are reserved to RequestReturnCode enum.
      */
     virtual uint16_t sendRequest(const char* receiver,
                                  uint16_t code,
                                  void** data,
                                  uint32_t* dataSize) final
     {
-        return _requestFunc(jp_name(), receiver, code, data, dataSize);
+        return sendRequestImpl(receiver, code, data, dataSize);
     }
 
     /**
@@ -158,12 +162,15 @@ public:
         COMMON_ERROR = 1,
         UNKNOWN_REQUEST = 2,
         DATASIZE_NULL = 3,
+        NOT_A_DEPENDENCY = 4,
 
         // Used for CHECK_* requests
         TRUE = SUCCESS,
         FALSE = COMMON_ERROR,
 
-        NOT_FOUND = 4
+        NOT_FOUND = 5,
+
+        USER_RETURN_CODE = 100
     };
 
 protected:
@@ -171,16 +178,27 @@ protected:
 // Implementation macro used to define the function pointer with the correct type
 // Typedefs are not used because the signature is also used by PluginManager and it
 // should not be part of the public API of IPlugin.
+
 #define _JP_MGR_REQUEST_FUNC_SIGNATURE(varName) \
-    uint16_t (*varName)(const char*, const char*, uint16_t, void**, uint32_t*)
+    uint16_t (*varName)(const char*, uint16_t, void**, uint32_t*)
 
     //! @cond
     // Constructor used by the factory method to creates the plugin object
-    IPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(func)) { _requestFunc = func; }
+    IPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),
+            IPlugin** depPlugins,
+            int depNb)
+        : _requestFunc(requestFunc),
+          _depPlugins(depPlugins),
+          _depNb(depNb)
+    {}
+
     //! @endcond
 
 private:
     _JP_MGR_REQUEST_FUNC_SIGNATURE(_requestFunc);
+    IPlugin** _depPlugins;
+    int _depNb;
+
     virtual const char* jp_name() = 0;
 
     IPlugin() = default;
@@ -188,6 +206,26 @@ private:
     // Prevent from copying plugins objects
     IPlugin(const IPlugin&) = delete;
     const IPlugin& operator=(const IPlugin&) = delete;
+
+    // Private implementation of sendRequest
+    uint16_t sendRequestImpl(const char *receiver, uint16_t code, void **data, uint32_t *dataSize)
+    {
+        // Send to manager (receiver is null)
+        if(!receiver)
+        {
+            std::cout << "send to manager" << std::endl;
+            return _requestFunc(jp_name(), code, data, dataSize);
+        }
+        // Send to the dependency
+        for(int i=0; i < _depNb; ++i)
+        {
+            if(strcmp(receiver, _depPlugins[i]->jp_name()) == 0)
+                return _depPlugins[i]->handleRequest(jp_name(), code, data, dataSize);
+        }
+
+        // Dependency was not found
+        return IPlugin::NOT_A_DEPENDENCY;
+    }
 };
 
 } // namespace jp
@@ -237,7 +275,7 @@ private:
 #endif
 
 /* Functions used for checks in different macros */
-namespace jp_internal
+namespace jp_private
 {
 namespace CStringUtil
 {
@@ -252,33 +290,43 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
     return (*str == 0) ? true : (contains(allowed, str[0]) ? containsOnly(++str, allowed) : false);
 }
 } // namespace CStringUtil
-} // namespace jp_internal
+} // namespace jp_private
 
 #define _JP_DECLARE_PLUGIN__IMPL(className, pluginName)                                             \
-    static_assert(jp_internal::CStringUtil::containsOnly(#pluginName,                               \
-                                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                        \
-                                                "abcdefghijklmnopqrstuvwxyz0123456789_"),           \
+    static_assert(jp_private::CStringUtil::containsOnly(#pluginName,                                \
+                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                \
+                                                        "abcdefghijklmnopqrstuvwxyz0123456789_"),   \
                   "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");    \
-    static_assert(!jp_internal::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),   \
+    static_assert(!jp_private::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),    \
                   "Plugin name \"" #pluginName "\" cannot start with a digit");                     \
     static_assert(*(const char*)(#pluginName) != '\0',                                              \
                   "Plugin name must not be an empty string !");                                     \
     private:                                                                                        \
-        className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc)): jp::IPlugin(requestFunc) {}         \
+        className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),                                      \
+                  jp::IPlugin** depPlugins,                                                         \
+                  int depNb)                                                                        \
+            : jp::IPlugin(requestFunc, depPlugins, depNb) {}                                        \
         const char* jp_name() override { return #pluginName; }                                      \
     public:                                                                                         \
-        static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc))            \
+        static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),            \
+                                            jp::IPlugin** depPlugins,                               \
+                                            int depNb)                                              \
         {                                                                                           \
-            return new className(requestFunc);                                                      \
+            className* ptr = new className(requestFunc, depPlugins, depNb);                         \
+            return ptr;                                                                             \
         }                                                                                           \
         static constexpr const char* name() { return #pluginName; }
 
-#define _JP_REGISTER_PLUGIN__IMPL(className)                                                    \
-    extern "C" JP_EXPORT_SYMBOL const char* jp_name;                                            \
-    const char* jp_name = className::name();                                                    \
-    extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                                       \
-    extern "C" JP_EXPORT_SYMBOL const void* jp_createPlugin;                                    \
-    const void * jp_createPlugin = reinterpret_cast<const void*>(                               \
-                                   reinterpret_cast<intptr_t>(&className::jp_createPlugin));
+
+#define _JP_EXPORT_FUNCTION_ALIAS(name, alias)                                              \
+    extern "C" JP_EXPORT_SYMBOL const void* alias;                                          \
+    const void* alias = reinterpret_cast<const void*>(reinterpret_cast<intptr_t>(&name));
+
+
+#define _JP_REGISTER_PLUGIN__IMPL(className)                                \
+    extern "C" JP_EXPORT_SYMBOL const char* jp_name;                        \
+    const char* jp_name = className::name();                                \
+    extern "C" JP_EXPORT_SYMBOL const char jp_metadata[];                   \
+    _JP_EXPORT_FUNCTION_ALIAS(className::jp_createPlugin, jp_createPlugin)
 
 #endif // IPLUGIN_H

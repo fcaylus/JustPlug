@@ -29,6 +29,10 @@ cmake_minimum_required(VERSION 2.8)
 project(JustPlug)
 set(JP_SO_NAME justplug)
 
+#
+# Build options
+#
+
 # Avoid in source building
 if("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
     message(FATAL_ERROR "In-source building is forbiden ! (Please create a build/ dir inside the source dir or everywhere else)")
@@ -53,6 +57,14 @@ if(UNIX OR MINGW)
 endif()
 
 #
+# Thread library
+#
+
+if(USE_THREADS)
+    find_package(Threads REQUIRED)
+endif()
+
+#
 # Include thirdparty folder
 #
 include_directories(thirdparty)
@@ -67,7 +79,7 @@ file(
 
 # Add custom definitions
 add_definitions(
-    -DJP_PLUGIN_API="0.0.1"
+    -DJP_PLUGIN_API=\"0.0.1\"
 )
 
 # Add src files
@@ -96,4 +108,8 @@ add_library(
 
 if(UNIX)
     target_link_libraries(${JP_SO_NAME} dl)
+endif()
+
+if(USE_THREADS)
+    target_link_libraries(${JP_SO_NAME} ${CMAKE_THREAD_LIBS_INIT})
 endif()

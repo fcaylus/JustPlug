@@ -41,6 +41,20 @@ public:
     {
         std::cout << "Unloading Plugin 1" << std::endl;
     }
+
+    uint16_t handleRequest(const char *sender, uint16_t code, void **data, uint32_t *dataSize)
+    {
+        JP_UNUSED(sender);JP_UNUSED(dataSize);
+
+        // If code == 0, this plugin will return a ping message
+        if(code == 0)
+        {
+            *data = (void*)"ping from Plugin 1";
+            return jp::IPlugin::SUCCESS;
+        }
+
+        return jp::IPlugin::UNKNOWN_REQUEST;
+    }
 };
 
 JP_REGISTER_PLUGIN(Plugin)

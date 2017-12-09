@@ -35,6 +35,10 @@ public:
     void loaded() override
     {
         std::cout << "Loading Plugin 2" << std::endl;
+        char* data = nullptr;
+        sendRequest("plugin_1", 0, (void**)(&data), nullptr);
+        if(data)
+            std::cout << data << std::endl;
     }
 
     void aboutToBeUnloaded() override

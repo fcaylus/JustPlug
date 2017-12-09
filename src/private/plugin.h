@@ -74,7 +74,9 @@ struct PluginInfoStd
 // Internal structure to store plugins and their associated library
 struct Plugin
 {
-    typedef jp::IPlugin* (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE());
+    typedef jp::IPlugin* (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE(),
+                                            jp::IPlugin**,
+                                            int);
 
     std::shared_ptr<jp::IPlugin> iplugin;
     std::function<iplugin_create_t> creator;

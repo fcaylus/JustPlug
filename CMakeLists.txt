@@ -57,14 +57,6 @@ if(UNIX OR MINGW)
 endif()
 
 #
-# Thread library
-#
-
-if(USE_THREADS)
-    find_package(Threads REQUIRED)
-endif()
-
-#
 # Include thirdparty folder
 #
 include_directories(thirdparty)

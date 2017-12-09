@@ -101,7 +101,3 @@ add_library(
 if(UNIX)
     target_link_libraries(${JP_SO_NAME} dl)
 endif()
-
-if(USE_THREADS)
-    target_link_libraries(${JP_SO_NAME} ${CMAKE_THREAD_LIBS_INIT})
-endif()

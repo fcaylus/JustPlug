@@ -26,6 +26,7 @@
 
 #include <string>
 #include "iplugin.h"
+#include "plugininfo.h"
 
 class PluginTest: public jp::IPlugin
 {
@@ -36,11 +37,39 @@ public:
     void loaded() override
     {
         std::cout << "Loading PluginTest" << std::endl;
-        char* buffer = nullptr;
-        uint32_t dataSize = 0;
-        sendRequest(nullptr, IPlugin::GET_APPDIRECTORY, (void**)&buffer, &dataSize);
-        if(buffer)
-            std::cout << buffer << std::endl;
+
+        {
+            char* buffer = nullptr;
+            uint32_t dataSize = 0;
+            sendRequest(nullptr, IPlugin::GET_APPDIRECTORY, (void**)&buffer, &dataSize);
+            if(buffer)
+                std::cout << buffer << std::endl;
+        }
+
+        {
+            char* buffer = nullptr;
+            uint32_t dataSize = 0;
+            sendRequest(nullptr, IPlugin::GET_PLUGINAPI, (void**)&buffer, &dataSize);
+            if(buffer)
+                std::cout << buffer << std::endl;
+        }
+
+        {
+            size_t* buffer = nullptr;
+            uint32_t dataSize = 0;
+            sendRequest(nullptr, IPlugin::GET_PLUGINSCOUNT, (void**)&buffer, &dataSize);
+            if(buffer)
+                std::cout << *buffer << std::endl;
+        }
+
+        {
+            jp::PluginInfo* buffer = nullptr;
+            uint32_t dataSize = 0;
+            sendRequest(nullptr, IPlugin::GET_PLUGININFO, (void**)&buffer, &dataSize);
+            if(buffer)
+                std::cout << buffer->name << std::endl;
+        }
+
     }
 
     void aboutToBeUnloaded() override

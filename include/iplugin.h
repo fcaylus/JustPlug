@@ -29,8 +29,6 @@
 #include <cstdint> // for intN_t types
 #include "confinfo.h"
 
-#include <iostream>
-
 /*****************************************************************************/
 /***** Macros definitions ****************************************************/
 /*****************************************************************************/
@@ -213,7 +211,6 @@ private:
         // Send to manager (receiver is null)
         if(!receiver)
         {
-            std::cout << "send to manager" << std::endl;
             return _requestFunc(jp_name(), code, data, dataSize);
         }
         // Send to the dependency

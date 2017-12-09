@@ -50,9 +50,6 @@ struct PlugMgrPrivate
 
     std::unordered_map<std::string, PluginPtr> pluginsMap;
 
-    // Used to tell the main thread if all plugins are unload
-    bool allPluginsUnloaded = false;
-
     // Contains the last load order used
     std::vector<std::string> loadOrderList;
 
@@ -72,7 +69,7 @@ struct PlugMgrPrivate
     jp::ReturnCode checkDependencies(PluginPtr& plugin, jp::PluginManager::callback callbackFunc);
 
     // Simply load all plugins in the order specified by loadOrderList
-    // (usually called the plugins thread function or loadPlugins() in single-thread app)
+    // Called by PluginManager::loadPlugins()
     void loadPluginsInOrder();
     // No checks is performed for the dependencies, they MUST be loaded
     void loadPlugin(PluginPtr& plugin);
@@ -83,8 +80,6 @@ struct PlugMgrPrivate
 
     // Function called by plugins throught IPlugin::sendRequest()
     static uint16_t handleRequest(const char* sender, uint16_t code, void** data, uint32_t *dataSize);
-    // Implement the request handling (usually called by handleRequest() or the thread event loop)
-    static uint16_t handleRequestImpl(const char* sender, uint16_t code, void** data, uint32_t *dataSize);
 };
 
 } // namespace jp_private

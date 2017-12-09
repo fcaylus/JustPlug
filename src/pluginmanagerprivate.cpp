@@ -184,14 +184,6 @@ uint16_t PlugMgrPrivate::handleRequest(const char *sender,
                                        void **data,
                                        uint32_t *dataSize)
 {
-    // NOTE: For now, handleRequest() is thread safe if plugins don't spawn thread
-    // Indeed, this method is only called from loaded() or aboutToBeUnloaded() functions
-    // which are surrounded by locks.
-    return handleRequestImpl(sender, code, data, dataSize);
-}
-
-uint16_t PlugMgrPrivate::handleRequestImpl(const char *sender, uint16_t code, void **data, uint32_t *dataSize)
-{
     PlugMgrPrivate *_p = PluginManager::instance()._p;
 
     if(_p->useLog)

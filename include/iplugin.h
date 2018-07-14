@@ -90,6 +90,13 @@ public:
     virtual void aboutToBeUnloaded() = 0;
 
     /**
+     * @brief Called by the Plugin Manager only if the plugin was registered as the main plugin.
+     *
+     * @note Always called after every plugins loaded() function.
+     */
+    virtual void mainPluginExec();
+
+    /**
      * @brief Send a request to the plugin manager or other plugins
      * @param receiver The name of the receiver plugin (If NULL, the request is send to the plugin's manager)
      * @param code The code identifying the request. Each plugin has to provide a list of available codes

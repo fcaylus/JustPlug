@@ -62,6 +62,8 @@ struct PlugMgrPrivate
 
     bool useLog = true; // log output is enable by default
 
+    std::string mainPluginName;
+
     //
     // Functions
 

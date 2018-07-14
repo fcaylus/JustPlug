@@ -232,6 +232,16 @@ ReturnCode PluginManager::searchForPlugins(const std::string &pluginDir, callbac
     return searchForPlugins(pluginDir, false, callbackFunc);
 }
 
+ReturnCode PluginManager::registerMainPlugin(const std::string &pluginName)
+{
+    if(_p->mainPluginName.empty() && hasPlugin(pluginName))
+    {
+        _p->mainPluginName = pluginName;
+        return ReturnCode::SUCCESS;
+    }
+    return ReturnCode::UNKNOWN_ERROR;
+}
+
 ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
 {
     // First step: For each plugins, check if it's dependencies have been found
@@ -300,6 +310,10 @@ ReturnCode PluginManager::loadPlugins(bool tryToContinue, callback callbackFunc)
 
     // Fourth step: load plugins
     _p->loadPluginsInOrder();
+
+    // Call the main plugin function
+    if(!_p->mainPluginName.empty())
+        _p->pluginsMap.at(_p->mainPluginName)->iplugin->mainPluginExec();
 
     // Here, all plugins are loaded, the function can return
     return ReturnCode::SUCCESS;

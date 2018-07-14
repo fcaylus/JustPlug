@@ -216,6 +216,20 @@ public:
     ReturnCode searchForPlugins(const std::string& pluginDir, callback callbackFunc = callback());
 
     /**
+     * @brief Register a plugin as the main plugin.
+     *
+     * The main plugin's mainPluginExec() function will be called only for the specified plugin after all plugins
+     * are loaded.
+     * This function is usefull when user need to run a main loop.
+     *
+     * @note Can only be called once
+     *
+     * @param pluginName
+     * @return true if no other plugin is registered and if the plugin exists
+     */
+    ReturnCode registerMainPlugin(const std::string& pluginName);
+
+    /**
      * @brief Load all plugins found by previous searchForPlugins().
      *
      * @param tryToContinue If true, the manager will try to load other plugins if some have errors.

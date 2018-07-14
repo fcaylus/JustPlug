@@ -163,8 +163,8 @@ public:
         NOT_A_DEPENDENCY = 4,
 
         // Used for CHECK_* requests
-        TRUE = SUCCESS,
-        FALSE = COMMON_ERROR,
+        RESULT_TRUE = SUCCESS,
+        RESULT_FALSE = COMMON_ERROR,
 
         NOT_FOUND = 5,
 

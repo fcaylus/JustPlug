@@ -237,15 +237,15 @@ uint16_t PlugMgrPrivate::handleRequest(const char *sender,
     case IPlugin::CHECK_PLUGIN:
     {
         if(PluginManager::instance().hasPlugin((const char*)*data))
-            return IPlugin::TRUE;
-        return IPlugin::FALSE;
+            return IPlugin::RESULT_TRUE;
+        return IPlugin::RESULT_FALSE;
         break;
     }
     case IPlugin::CHECK_PLUGINLOADED:
     {
         if(PluginManager::instance().isPluginLoaded((const char*)*data))
-            return IPlugin::TRUE;
-        return IPlugin::FALSE;
+            return IPlugin::RESULT_TRUE;
+        return IPlugin::RESULT_FALSE;
         break;
     }
     default:

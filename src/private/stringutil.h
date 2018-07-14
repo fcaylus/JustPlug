@@ -33,8 +33,6 @@
 #include <cstring>
 #include <cstdlib>
 
-#include "confinfo.h"
-
 namespace jp_private
 {
 namespace StringUtil

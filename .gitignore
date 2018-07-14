@@ -11,6 +11,7 @@ CMakeLists.txt.user
 .vs/
 
 build/
+build-*/
 docgen/
 
 #

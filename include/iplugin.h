@@ -94,7 +94,7 @@ public:
      *
      * @note Always called after every plugins loaded() function.
      */
-    virtual void mainPluginExec();
+    virtual void mainPluginExec() {}
 
     /**
      * @brief Send a request to the plugin manager or other plugins

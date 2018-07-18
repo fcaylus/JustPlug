@@ -41,8 +41,29 @@
  * @note Must be declared AT THE BEGINNING of the class definition.
  * @related jp::IPlugin
  */
-#define JP_DECLARE_PLUGIN(className, pluginName) _JP_DECLARE_PLUGIN__IMPL(className, pluginName)
+#define JP_DECLARE_PLUGIN(className, pluginName) JP_DECLARE_PLUGIN_CUSTOMPARENT(className, pluginName, jp::IPlugin)
 
+/**
+ * @brief Same as JP_DECLARE_PLUGIN, but allow to specify a custom parent
+ *
+ * Usefull when the parent class is an another interface that inherits itself from IPlugin.
+ * Allows the user to create intermediate interfaces for different plugins.
+ * @note Must be declared AT THE BEGINNING of the class definition.
+ * @sa JP_DECLARE_PLUGIN
+ * @related jp::IPlugin
+ */
+#define JP_DECLARE_PLUGIN_CUSTOMPARENT(className, pluginName, parentClass) _JP_DECLARE_PLUGIN__IMPL(className, pluginName, parentClass)
+
+/**
+ * @brief Allow to create intermediate interfaces for plugin (like IPlugin)
+ *
+ * When used, the child plugin should use JP_DECLARE_PLUGIN_CUSTOMPARENT and specify the interface created
+ * with this macro as the parentClass
+ * @note Must be declared AT THE BEGINNING of the class definition.
+ * @sa JP_DECLARE_PLUGIN_CUSTOMPARENT
+ * @related jp::IPlugin
+ */
+#define JP_DECLARE_INTERFACE(className, parentClass) _JP_DECLARE_INTERFACE__IMPL(className, parentClass)
 
 /**
  * @brief Allow the plugin class to export the correct symbols.
@@ -217,9 +238,7 @@ private:
     {
         // Send to manager (receiver is null)
         if(!receiver)
-        {
             return _requestFunc(jp_name(), code, data, dataSize);
-        }
         // Send to the dependency
         for(int i=0; i < _depNb; ++i)
         {
@@ -296,7 +315,14 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
 } // namespace CStringUtil
 } // namespace jp_private
 
-#define _JP_DECLARE_PLUGIN__IMPL(className, pluginName)                                             \
+#define _JP_DECLARE_INTERFACE__IMPL(className, parentClass)                                         \
+    protected:                                                                                      \
+        className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),                                      \
+                  jp::IPlugin** depPlugins,                                                         \
+                  int depNb)                                                                        \
+            : parentClass(requestFunc, depPlugins, depNb) {}
+
+#define _JP_DECLARE_PLUGIN__IMPL(className, pluginName, parentClass)                                \
     static_assert(jp_private::CStringUtil::containsOnly(#pluginName,                                \
                                                         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                \
                                                         "abcdefghijklmnopqrstuvwxyz0123456789_"),   \
@@ -305,11 +331,8 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
                   "Plugin name \"" #pluginName "\" cannot start with a digit");                     \
     static_assert(*(const char*)(#pluginName) != '\0',                                              \
                   "Plugin name must not be an empty string !");                                     \
-    private:                                                                                        \
-        className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),                                      \
-                  jp::IPlugin** depPlugins,                                                         \
-                  int depNb)                                                                        \
-            : jp::IPlugin(requestFunc, depPlugins, depNb) {}                                        \
+    _JP_DECLARE_INTERFACE__IMPL(className, parentClass)                                             \
+    protected:                                                                                      \
         const char* jp_name() override { return #pluginName; }                                      \
     public:                                                                                         \
         static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),            \

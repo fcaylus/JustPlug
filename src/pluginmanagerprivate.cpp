@@ -133,7 +133,11 @@ void PlugMgrPrivate::loadPlugin(PluginPtr& plugin)
     for(int i=0; i < depNb; ++i)
         depPlugins[i] = pluginsMap[plugin->info.dependencies[i].name]->iplugin.get();
 
-    plugin->iplugin.reset(plugin->creator(PlugMgrPrivate::handleRequest, depPlugins, depNb));
+    plugin->iplugin.reset(plugin->creator(PlugMgrPrivate::handleRequest,
+                                          PlugMgrPrivate::getNonDepPlugin,
+                                          depPlugins,
+                                          depNb,
+                                          plugin->isMainPlugin));
     plugin->iplugin->loaded();
 }
 
@@ -254,4 +258,21 @@ uint16_t PlugMgrPrivate::handleRequest(const char *sender,
     }
 
     return IPlugin::SUCCESS;
+}
+
+// Static
+IPlugin* PlugMgrPrivate::getNonDepPlugin(const char* sender, const char* pluginName)
+{
+    PlugMgrPrivate *_p = PluginManager::instance()._p;
+
+    if(_p->pluginsMap[std::string(sender)]->isMainPlugin)
+    {
+        if(_p->useLog)
+            _p->log.get() << "Get plugin object of " << pluginName << " plugin (request from the main plugin)" << std::endl;
+
+        if(_p->pluginManager->isPluginLoaded(pluginName))
+            return _p->pluginsMap[std::string(pluginName)]->iplugin.get();
+    }
+
+    return nullptr;
 }

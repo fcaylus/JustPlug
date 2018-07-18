@@ -75,8 +75,10 @@ struct PluginInfoStd
 struct Plugin
 {
     typedef jp::IPlugin* (iplugin_create_t)(_JP_MGR_REQUEST_FUNC_SIGNATURE(),
+                                            _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(),
                                             jp::IPlugin**,
-                                            int);
+                                            int,
+                                            bool);
 
     std::shared_ptr<jp::IPlugin> iplugin;
     std::function<iplugin_create_t> creator;
@@ -84,6 +86,8 @@ struct Plugin
 
     std::string path;
     PluginInfoStd info;
+
+    bool isMainPlugin = false;
 
     //
     // Flags used when loading

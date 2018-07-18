@@ -222,6 +222,8 @@ public:
      * are loaded.
      * This function is usefull when user need to run a main loop.
      *
+     * The main plugin can send requests to every other plugins, even if they are not in its dependencies' list.
+     *
      * @note Can only be called once
      *
      * @param pluginName

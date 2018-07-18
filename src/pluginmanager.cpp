@@ -114,7 +114,7 @@ const char* ReturnCode::message(const ReturnCode &code)
 /* PluginManager class *******************************************************/
 /*****************************************************************************/
 
-PluginManager::PluginManager() : _p(new PlugMgrPrivate())
+PluginManager::PluginManager() : _p(new PlugMgrPrivate(this))
 {
 }
 
@@ -237,6 +237,7 @@ ReturnCode PluginManager::registerMainPlugin(const std::string &pluginName)
     if(_p->mainPluginName.empty() && hasPlugin(pluginName))
     {
         _p->mainPluginName = pluginName;
+        _p->pluginsMap[pluginName]->isMainPlugin = true;
         return ReturnCode::SUCCESS;
     }
     return ReturnCode::UNKNOWN_ERROR;

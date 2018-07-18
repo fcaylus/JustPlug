@@ -113,6 +113,8 @@ public:
     /**
      * @brief Called by the Plugin Manager only if the plugin was registered as the main plugin.
      *
+     * A plugin registered as the main plugin can send request to every other plugins, even if they are not
+     * in the dependencies' list.
      * @note Always called after every plugins loaded() function.
      */
     virtual void mainPluginExec() {}
@@ -208,22 +210,34 @@ protected:
 #define _JP_MGR_REQUEST_FUNC_SIGNATURE(varName) \
     uint16_t (*varName)(const char*, uint16_t, void**, uint32_t*)
 
+#define _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(varName) \
+    jp::IPlugin* (*varName)(const char*, const char*)
+
     //! @cond
     // Constructor used by the factory method to creates the plugin object
     IPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),
+            _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(nonDepFunc),
             IPlugin** depPlugins,
-            int depNb)
+            int depNb,
+            bool isMainPlugin)
         : _requestFunc(requestFunc),
+          _nonDepFunc(nonDepFunc),
           _depPlugins(depPlugins),
-          _depNb(depNb)
+          _depNb(depNb),
+          _isMainPlugin(isMainPlugin)
     {}
 
     //! @endcond
 
 private:
     _JP_MGR_REQUEST_FUNC_SIGNATURE(_requestFunc);
+    // This function is used only for the main plugin, to send request to a non dependency plugin
+    _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(_nonDepFunc);
+
     IPlugin** _depPlugins;
     int _depNb;
+
+    bool _isMainPlugin = false;
 
     virtual const char* jp_name() = 0;
 
@@ -239,11 +253,20 @@ private:
         // Send to manager (receiver is null)
         if(!receiver)
             return _requestFunc(jp_name(), code, data, dataSize);
+
         // Send to the dependency
         for(int i=0; i < _depNb; ++i)
         {
             if(strcmp(receiver, _depPlugins[i]->jp_name()) == 0)
                 return _depPlugins[i]->handleRequest(jp_name(), code, data, dataSize);
+        }
+
+        // Send to non-dependency if main plugin
+        if(_isMainPlugin)
+        {
+            IPlugin* plug = _nonDepFunc(jp_name(), receiver);
+            if(plug)
+                return plug->handleRequest(jp_name(), code, data, dataSize);
         }
 
         // Dependency was not found
@@ -318,30 +341,34 @@ constexpr inline bool containsOnly(const char* str, const char* allowed)
 #define _JP_DECLARE_INTERFACE__IMPL(className, parentClass)                                         \
     protected:                                                                                      \
         className(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),                                      \
+                  _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(nonDepFunc),                                 \
                   jp::IPlugin** depPlugins,                                                         \
-                  int depNb)                                                                        \
-            : parentClass(requestFunc, depPlugins, depNb) {}
+                  int depNb,                                                                        \
+                  bool isMainPlugin)                                                                \
+            : parentClass(requestFunc, nonDepFunc, depPlugins, depNb, isMainPlugin) {}
 
-#define _JP_DECLARE_PLUGIN__IMPL(className, pluginName, parentClass)                                \
-    static_assert(jp_private::CStringUtil::containsOnly(#pluginName,                                \
-                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                \
-                                                        "abcdefghijklmnopqrstuvwxyz0123456789_"),   \
-                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");    \
-    static_assert(!jp_private::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),    \
-                  "Plugin name \"" #pluginName "\" cannot start with a digit");                     \
-    static_assert(*(const char*)(#pluginName) != '\0',                                              \
-                  "Plugin name must not be an empty string !");                                     \
-    _JP_DECLARE_INTERFACE__IMPL(className, parentClass)                                             \
-    protected:                                                                                      \
-        const char* jp_name() override { return #pluginName; }                                      \
-    public:                                                                                         \
-        static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),            \
-                                            jp::IPlugin** depPlugins,                               \
-                                            int depNb)                                              \
-        {                                                                                           \
-            className* ptr = new className(requestFunc, depPlugins, depNb);                         \
-            return ptr;                                                                             \
-        }                                                                                           \
+#define _JP_DECLARE_PLUGIN__IMPL(className, pluginName, parentClass)                                    \
+    static_assert(jp_private::CStringUtil::containsOnly(#pluginName,                                    \
+                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"                    \
+                                                        "abcdefghijklmnopqrstuvwxyz0123456789_"),       \
+                  "Plugin name \"" #pluginName "\" must contains only letters, digits and '_'");        \
+    static_assert(!jp_private::CStringUtil::contains("0123456789", *(const char*)(#pluginName)),        \
+                  "Plugin name \"" #pluginName "\" cannot start with a digit");                         \
+    static_assert(*(const char*)(#pluginName) != '\0',                                                  \
+                  "Plugin name must not be an empty string !");                                         \
+    _JP_DECLARE_INTERFACE__IMPL(className, parentClass)                                                 \
+    protected:                                                                                          \
+        const char* jp_name() override { return #pluginName; }                                          \
+    public:                                                                                             \
+        static jp::IPlugin* jp_createPlugin(_JP_MGR_REQUEST_FUNC_SIGNATURE(requestFunc),                \
+                                            _JP_MGR_GET_NON_DEP_PLUGIN_SIGNATURE(nonDepFunc),           \
+                                            jp::IPlugin** depPlugins,                                   \
+                                            int depNb,                                                  \
+                                            bool isMainPlugin)                                          \
+        {                                                                                               \
+            className* ptr = new className(requestFunc, nonDepFunc, depPlugins, depNb, isMainPlugin);   \
+            return ptr;                                                                                 \
+        }                                                                                               \
         static constexpr const char* name() { return #pluginName; }
 
 

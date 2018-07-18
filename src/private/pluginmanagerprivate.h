@@ -45,8 +45,10 @@ namespace jp_private
 // (used to ensure ABI compatibility if implementation changes)
 struct PlugMgrPrivate
 {
-    PlugMgrPrivate() {}
+    PlugMgrPrivate(jp::PluginManager* plugMgr): pluginManager(plugMgr) {}
     ~PlugMgrPrivate() {}
+
+    jp::PluginManager* pluginManager;
 
     std::unordered_map<std::string, PluginPtr> pluginsMap;
 
@@ -82,6 +84,8 @@ struct PlugMgrPrivate
 
     // Function called by plugins throught IPlugin::sendRequest()
     static uint16_t handleRequest(const char* sender, uint16_t code, void** data, uint32_t *dataSize);
+    // Return nullptr if sender is not the main plugin or if pluginName is not loaded
+    static jp::IPlugin* getNonDepPlugin(const char* sender, const char* pluginName);
 };
 
 } // namespace jp_private

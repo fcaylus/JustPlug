@@ -261,6 +261,10 @@ private:
                 return _depPlugins[i]->handleRequest(jp_name(), code, data, dataSize);
         }
 
+        // Send to itself
+        if(strcmp(receiver, jp_name()) == 0)
+            return this->handleRequest(jp_name(), code, data, dataSize);
+
         // Send to non-dependency if main plugin
         if(_isMainPlugin)
         {

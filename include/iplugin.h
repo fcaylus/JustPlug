@@ -121,7 +121,7 @@ public:
 
     /**
      * @brief Send a request to the plugin manager or other plugins
-     * @param receiver The name of the receiver plugin (If NULL, the request is send to the plugin's manager)
+     * @param receiver The name of the receiver plugin (If NULL, the request is send to the plugin's manager). A plugin can send a request to itself.
      * @param code The code identifying the request. Each plugin has to provide a list of available codes
      * @param data A pointer to potential data to send (resp. retrieve) to (resp. from) the receiver.
      * @param dataSize A pointer to the size of the data. Must not be NULL if data are sent or expected.

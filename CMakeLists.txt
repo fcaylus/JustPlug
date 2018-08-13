@@ -71,7 +71,7 @@ file(
 
 # Add custom definitions
 add_definitions(
-    -DJP_PLUGIN_API=\"0.0.1\"
+    -DJP_PLUGIN_API=\"1.0.0\"
 )
 
 # Add src files
